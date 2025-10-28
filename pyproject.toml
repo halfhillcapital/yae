@@ -1,0 +1,34 @@
+[project]
+name = "yae"
+version = "0.1.0"
+description = "Yae is an AI companion that can interact with you through both text and voice."
+readme = "README.md"
+authors = [
+    { name = "Halfhill Capital", email = "halfhill@pm.me" }
+]
+license = "GPL-3.0"
+requires-python = ">=3.13"
+dependencies = [
+    "aiosqlite>=0.21.0",
+    "fastapi[standard]>=0.116.1",
+    "httpx>=0.28.1",
+    "pydantic-ai>=1.0.14",
+    "python-dotenv>=1.1.1",
+    "sqlalchemy>=2.0.44",
+    "sqlmodel>=0.0.27",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath = [
+    "."
+]

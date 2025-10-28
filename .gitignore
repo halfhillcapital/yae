@@ -201,7 +201,15 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Zed
+.zed/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# YAE
+assets/
+prompts/
+docs/
