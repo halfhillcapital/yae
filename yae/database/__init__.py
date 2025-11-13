@@ -1,14 +1,17 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from contextlib import asynccontextmanager
 
-from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+from yae.config import AppConfig
+from .services import DatabaseServices
 
 class DatabaseManager:
     """Manages database connections and sessions"""
     
     def __init__(self, database_url: str):
-        self.engine = create_async_engine(database_url, echo=True)
+        self.engine = create_async_engine(database_url, echo=False)
         self.session_factory = async_sessionmaker(
             bind=self.engine,
             class_=AsyncSession,
@@ -27,13 +30,47 @@ class DatabaseManager:
             finally:
                 await session.close()
     
-    async def init_db(self) -> None:
+    async def init_db(self, config: Optional[AppConfig] = None) -> None:
         """Initialize database tables"""
-        from .models import SQLModel
-        async with self.engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
+        from .models import Base, User, Role
+        from sqlalchemy import select
 
-# Global database manager instance (this is acceptable as it's a singleton)
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with self.get_session() as session:
+            if not config:
+                print("Error: Config not loaded.")
+                return
+            
+            yae_check = await session.execute(select(User).where(User.role == Role.ASSISTANT))
+            yae_exists = yae_check.scalar_one_or_none()
+
+            admin_check = await session.execute(select(User).where(User.discord_id == config.ADMIN_DISCORD_ID))
+            admin_exists = admin_check.scalar_one_or_none()
+
+            if not yae_exists:
+                yae = User(
+                    name=config.YAE_NAME,
+                    role=Role.ASSISTANT,
+                    discord_id=config.YAE_DISCORD_ID,
+                    discord_username=config.YAE_DISCORD_USERNAME
+                )
+                session.add(yae)
+                await session.commit()
+
+            if not admin_exists:
+                admin = User(
+                    name=config.ADMIN_NAME,
+                    discord_id=config.ADMIN_DISCORD_ID,
+                    discord_username=config.ADMIN_DISCORD_USERNAME
+                )
+
+                session.add(admin)
+                await session.commit()
+
+
+# Global database manager instance
 _db_manager: DatabaseManager | None = None
 
 def get_db(url: str = "sqlite+aiosqlite:///./yae.db") -> DatabaseManager:
@@ -42,3 +79,14 @@ def get_db(url: str = "sqlite+aiosqlite:///./yae.db") -> DatabaseManager:
     if _db_manager is None:
         _db_manager = DatabaseManager(url)
     return _db_manager
+
+# Dependency injection functions for FastAPI
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency to get a database session"""
+    db = get_db()
+    async with db.get_session() as session:
+        yield session
+
+async def get_db_services(session: AsyncSession = Depends(get_db_session)) -> DatabaseServices:
+    """Dependency to get all database services sharing the same session"""
+    return DatabaseServices(session)

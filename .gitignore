@@ -211,5 +211,5 @@ __marimo__/
 
 # YAE
 assets/
-prompts/
 docs/
+*.db

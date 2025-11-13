@@ -1,9 +1,6 @@
 import os
 
-from pydantic_ai import ModelMessage, ModelRequest, ModelResponse, TextPart, UserPromptPart
-
 from yae.errors import MissingEnvironmentVariableError
-from yae.database.models import Message, Role
 
 
 def required_env(key: str, default: str | None = None) -> str:
@@ -39,17 +36,6 @@ def required_prompts(file: str) -> str:
     filepath = os.path.join(os.getcwd(), "prompts", file)
     with open(filepath, "r") as f:
         return f.read()
-    
 
-def convertToPydanticAI(messages: list[Message]) -> list[ModelMessage]:
-    converted: list[ModelMessage] = []
-    for message in messages:
-        if message.user.role == Role.ASSISTANT:
-            converted.append(ModelResponse(
-                parts=[TextPart(content=message.content)],
-                timestamp=message.created_at))
-        else:
-            converted.append(ModelRequest(
-                parts=[UserPromptPart(content=message.content, timestamp=message.created_at)]
-            ))
-    return converted
+async def stream_text(content: str):
+    yield content

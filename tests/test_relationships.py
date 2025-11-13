@@ -6,8 +6,8 @@ class TestModelRelationships:
     async def test_user_relationships(self, test_session):
         """Test user-messages relationship"""
 
-        user1 = User(name="Test User", role=Role.USER, info="Test info")
-        user2 = User(name="Another User", role=Role.USER, info="Another info")
+        user1 = User(name="Test User", role=Role.USER)
+        user2 = User(name="Another User", role=Role.USER)
         session = Session(owner=user1)
         
         message1 = Message(
@@ -50,7 +50,7 @@ class TestModelRelationships:
     async def test_session_relationships(self, test_session):
         """Test session-messages relationship"""
 
-        user = User(name="Test User", role=Role.USER, info="Test info")
+        user = User(name="Test User", role=Role.USER)
         session1 = Session(owner=user)
         session2 = Session(owner=user)
         

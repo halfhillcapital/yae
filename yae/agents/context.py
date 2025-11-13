@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+from httpx import AsyncClient
+
+
 @dataclass
-class YaeContext:
-    user: str
+class AgentContext:
+    http: AsyncClient = AsyncClient()

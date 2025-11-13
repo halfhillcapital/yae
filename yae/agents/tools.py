@@ -1,9 +1,9 @@
-import httpx
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import RunContext
 
 import yae.utils as utils
-from yae.agents.context import YaeContext
+
+from .context import AgentContext
 
 
 class SearchSource(BaseModel):
@@ -17,7 +17,7 @@ class SearchResult(BaseModel):
     sources: list[SearchSource]
 
 
-async def search_tool(ctx: RunContext[YaeContext], query: str) -> str:
+async def search_tool(ctx: RunContext[AgentContext], query: str) -> str:
     """A powerful web search tool that provides comprehensive, real-time results using LinkUp's AI search engine.
     Returns relevant web content with customizable parameters for result count, content type, and domain filtering.
     Ideal for gathering current information, news, and detailed web content analysis.
@@ -44,8 +44,7 @@ async def search_tool(ctx: RunContext[YaeContext], query: str) -> str:
         "includeInlineCitations": "false",
     }
     
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=body, headers=headers, timeout=20.0)
+    response = await ctx.deps.http.post(url, json=body, headers=headers, timeout=20.0)
 
     if response.status_code != 200:
         print(f"Search tool error: {response.status_code}: {response.text}")
@@ -59,9 +58,9 @@ async def search_tool(ctx: RunContext[YaeContext], query: str) -> str:
         return "The response from the search tool could not be validated."
 
 
-async def message_tool(ctx: RunContext[YaeContext], user_id: str, content: str) -> str:
+async def message_tool(ctx: RunContext[AgentContext], user_id: str, content: str) -> str:
     return "Not implemented"
 
 
-async def voice_tool(ctx: RunContext[YaeContext], channel_id: str) -> str:
+async def voice_tool(ctx: RunContext[AgentContext], channel_id: str) -> str:
     return "Not implemented"

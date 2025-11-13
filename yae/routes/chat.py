@@ -1,48 +1,72 @@
-from enum import Enum
-from datetime import datetime
-from typing import AsyncGenerator, Optional
+from uuid import UUID
+from typing import Optional
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi.responses import StreamingResponse
 
-from yae.agents import AgentFactory
-# from yae.utils import convertToPydanticAI
+import yae.utils as utils
+from yae.agents import AgentService, get_agent_service
+from yae.database import DatabaseServices, get_db_services
+from yae.database.models import Session
 
-class ChatPlatform(str, Enum):
-    DISCORD = "discord"
-    LOCAL = "local"
+from .models import ChatMessage, ChatPlatform, ChatInterface
 
-class ChatMessage(BaseModel):
-    created_at: datetime
-    content: str
-
-class ChatRequest(BaseModel):
-    identifier: str
-    platform: ChatPlatform = ChatPlatform.DISCORD
-    message: ChatMessage
-    attachments: Optional[list[str]]
-    context: Optional[list[ChatMessage]]
 
 router = APIRouter()
 
-# Pretty hacky, later we should split Chat and Voice routes
+class ChatRequest(BaseModel):
+    message: ChatMessage
+    interface: ChatInterface = ChatInterface.TEXT
+    platform: ChatPlatform = ChatPlatform.LOCAL
+    session: UUID
+    attachments: Optional[list[str]]
+
+async def save_messages(assistant_response: str, session: Session, db_services: DatabaseServices):
+    yae = await db_services.users.by_id(1)
+    if not yae:
+        return
+
+    await db_services.sessions.add_message(assistant_response, session, yae)
+
+
+#TODO: Look for ways to stream only the delta
+#TODO: Do not assume that the request comes from Discord
 @router.post("/chat")
-async def post_chat(request: ChatRequest, agent = Depends(AgentFactory.create_chat_agent)) -> StreamingResponse:
-    history = []
-    # history = convertToPydanticAI(history)
+async def post_chat(
+    request: ChatRequest,
+    tasks: BackgroundTasks,
+    db_services: DatabaseServices = Depends(get_db_services),
+    agent_service: AgentService = Depends(get_agent_service)
+    ) -> StreamingResponse:
 
-    dep = None  # Replace with actual dependency injection for YaeContext
+    user = await db_services.users.by_discord(request.message.identifier)
+    session = await db_services.sessions.by_uuid(request.session)
 
-    async def token_streamer() -> AsyncGenerator[str, None]:
-        # Build prompt with context if provided
-        prompt = request.message.content
-        if request.context:
-            context_messages = "\n".join([msg.content for msg in request.context])
-            prompt = f"Context:\n{context_messages}\n\nCurrent message:\n{prompt}"
-        
-        async with agent.run_stream(prompt, deps=dep, message_history=history) as result:
-            async for token in result.stream_text(delta=True):
-                yield token
+    if not user:
+        return StreamingResponse(utils.stream_text("You are not registered!"))
 
-    return StreamingResponse(token_streamer(), media_type="text/event-stream")
+    if not session:
+        return StreamingResponse(utils.stream_text("No valid session found!"))
+    
+    user_message = await db_services.sessions.add_message(request.message.content, session, user)
+    history = await db_services.sessions.get_last_messages(session.id, 10)
+
+    if not user_message:
+        return StreamingResponse(utils.stream_text("There is something wrong with your message!"))
+
+    async def collect_and_stream():
+        full_response = ""
+        match request.interface:
+            case ChatInterface.TEXT:
+                agent = agent_service.run_text_agent(user_message, history)
+            case ChatInterface.VOICE:
+                agent = agent_service.run_voice_agent(user_message, history)
+
+        async for chunk in agent:
+            full_response += chunk
+            yield chunk
+
+        tasks.add_task(save_messages, full_response, session, db_services)
+
+    return StreamingResponse(collect_and_stream(), media_type="text/event-stream")

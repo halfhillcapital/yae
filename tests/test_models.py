@@ -12,7 +12,6 @@ class TestUserModel:
         """Test creating a user"""
         user = User(
             name="Test User",
-            info="Test user info",
             discord_id="123456789",
             discord_username="testuser"
         )
@@ -31,14 +30,12 @@ class TestUserModel:
         user1 = User(
             name="User 1",
             role=Role.USER,
-            info="Test user 1",
             discord_id="unique_id"
         )
         
         user2 = User(
             name="User 2",
             role=Role.USER,
-            info="Test user 2",
             discord_id="unique_id"  # Same discord_id
         )
         
@@ -54,7 +51,7 @@ class TestSessionModel:
     
     async def test_session_creation(self, test_session):
         """Test creating a session"""
-        user = User(name="Test User", role=Role.USER, info="Test info")
+        user = User(name="Test User", role=Role.USER)
         session = Session(owner=user)
         
         test_session.add(session)
@@ -62,7 +59,9 @@ class TestSessionModel:
         await test_session.refresh(session)
         
         assert session.id is not None
-        assert isinstance(session.id, uuid.UUID)
+        assert session.external_id is not None
+        assert isinstance(session.id, int)
+        assert isinstance(session.external_id, uuid.UUID)
         assert isinstance(session.created_at, datetime)
         assert isinstance(session.updated_at, datetime)
         assert session.owner == user
@@ -75,7 +74,7 @@ class TestMessageModel:
     async def test_message_creation(self, test_session):
         """Test creating a message"""
 
-        user = User(name="Test User", role=Role.USER, info="Test info")
+        user = User(name="Test User", role=Role.USER)
         session = Session(owner=user)
         
         message = Message(

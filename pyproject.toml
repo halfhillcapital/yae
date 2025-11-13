@@ -12,10 +12,9 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "fastapi[standard]>=0.116.1",
     "httpx>=0.28.1",
-    "pydantic-ai>=1.0.14",
+    "pydantic-ai>=1.12.0",
     "python-dotenv>=1.1.1",
     "sqlalchemy>=2.0.44",
-    "sqlmodel>=0.0.27",
 ]
 
 [dependency-groups]

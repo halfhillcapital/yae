@@ -2,7 +2,7 @@ import pytest
 import pytest_asyncio
 import asyncio
 from typing import AsyncGenerator
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from yae.database import DatabaseManager
 
