@@ -36,12 +36,16 @@ class AgentService:
         self.agent = Agent(voice_model, instructions=self.system_prompt, deps_type=AgentContext, tools=[search_tool])
         self.voice_agent = Agent(voice_model, instructions=self.voice_prompt)
 
-    async def run_text_agent(self, prompt: Message, history: list[Message]) -> AsyncGenerator[str, None]:
+    async def run_text_agent(self, messages: list[Message]) -> AsyncGenerator[str, None]:
+        prompt = messages[-1]
+        history = messages[:-1]
         async with self.agent.run_stream(self._toPrompt(prompt), message_history=self._toPydanticAI(history), deps=self.context) as result:
             async for partial in result.stream_text(delta=True):
                 yield partial
 
-    async def run_voice_agent(self, prompt: Message, history: list[Message]) -> AsyncGenerator[str, None]:
+    async def run_voice_agent(self, messages: list[Message]) -> AsyncGenerator[str, None]:
+        prompt = messages[-1]
+        history = messages[:-1]
         async with self.voice_agent.run_stream(self._toPrompt(prompt), message_history=self._toPydanticAI(history)) as result:
             async for partial in result.stream_text(delta=True):
                 yield partial

@@ -50,7 +50,7 @@ async def post_chat(
         return StreamingResponse(utils.stream_text("No valid session found!"))
     
     user_message = await db_services.sessions.add_message(request.message.content, session, user)
-    history = await db_services.sessions.get_last_messages(session.id, 10)
+    messages = await db_services.sessions.get_last_messages(session.id, 10)
 
     if not user_message:
         return StreamingResponse(utils.stream_text("There is something wrong with your message!"))
@@ -59,9 +59,9 @@ async def post_chat(
         full_response = ""
         match request.interface:
             case ChatInterface.TEXT:
-                agent = agent_service.run_text_agent(user_message, history)
+                agent = agent_service.run_text_agent(messages)
             case ChatInterface.VOICE:
-                agent = agent_service.run_voice_agent(user_message, history)
+                agent = agent_service.run_voice_agent(messages)
 
         async for chunk in agent:
             full_response += chunk
