@@ -31,7 +31,7 @@ class AppConfig:
             ADMIN_DISCORD_USERNAME = required_env("ADMIN_DISCORD_USERNAME")
             LOCAL_URL = required_env("LOCAL_URL", "http://127.0.0.1:11434/v1")
             LOCAL_TAG  = required_env("LOCAL_IDENTIFIER", "unsloth/gemma-3-12b-it")
-            REMOTE_TAG = required_env("REMOTE_IDENTIFIER", "z-ai/glm-4.5-air:free")
+            REMOTE_TAG = required_env("REMOTE_IDENTIFIER", "x-ai/grok-4.1-fast:free")
             OPENROUTER_API = required_env("OPENROUTER_API_KEY")
 
             PERSONA = required_prompts("persona.md")

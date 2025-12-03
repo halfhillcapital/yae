@@ -1,6 +1,7 @@
 from uuid import UUID
 from typing import Optional
 
+from async_lru import alru_cache
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,10 +19,20 @@ class UserService:
         stmt = select(User).where(User.id == user_id)
         return await self.session.scalar(stmt)
     
+    @alru_cache(maxsize=128)
+    async def by_id_cached(self, user_id: int) -> Optional[User]:
+        """Get a user by their ID with caching"""
+        return await self.by_id(user_id)
+    
     async def by_discord(self, discord_id: str) -> Optional[User]:
         """Get a user by their Discord ID"""
         stmt = select(User).where(User.discord_id == discord_id)
         return await self.session.scalar(stmt)
+    
+    @alru_cache(maxsize=128)
+    async def by_discord_cached(self, discord_id: str) -> Optional[User]:
+        """Get a user by their Discord ID with caching"""
+        return await self.by_discord(discord_id)
     
     async def all(self) -> list[User]:
         """Get all users"""
@@ -72,6 +83,8 @@ class UserService:
             
         await self.session.commit()
         await self.session.refresh(user)
+        self.by_id_cached.cache_clear()
+        self.by_discord_cached.cache_clear()
         return user
     
     async def delete_user(self, user_id: int) -> bool:
@@ -82,6 +95,8 @@ class UserService:
             
         await self.session.delete(user)
         await self.session.commit()
+        self.by_id_cached.cache_clear()
+        self.by_discord_cached.cache_clear()
         return True
 
 
@@ -96,10 +111,20 @@ class SessionService:
         stmt = select(Session).where(Session.id == session_id)
         return await self.session.scalar(stmt)
     
+    @alru_cache(maxsize=128)
+    async def by_id_cached(self, session_id: int) -> Optional[Session]:
+        """Get a session by its ID with caching"""
+        return await self.by_id(session_id)
+    
     async def by_uuid(self, uuid: UUID) -> Optional[Session]:
         """Get a session by its external UUID"""
         stmt = select(Session).where(Session.external_id == uuid)
         return await self.session.scalar(stmt)
+    
+    @alru_cache(maxsize=128)
+    async def by_uuid_cached(self, uuid: UUID) -> Optional[Session]:
+        """Get a session by its external UUID with caching"""
+        return await self.by_uuid(uuid)
     
     async def by_owner(self, owner_id: int) -> list[Session]:
         """Get all sessions for a specific user"""
@@ -134,9 +159,13 @@ class SessionService:
     
     async def add_messages(self, messages: list[Message]):
         self.session.add_all(messages)
+        await self.session.flush()
+        
+        if any(message.id is None for message in messages):
+            for message in messages:
+                await self.session.refresh(message)
+
         await self.session.commit()
-        for message in messages:
-            await self.session.refresh(message)
     
     async def get_messages(self, session_id: int) -> list[Message]:
         """Get all messages in a session"""

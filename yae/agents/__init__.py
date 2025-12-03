@@ -24,8 +24,8 @@ class AgentService:
         You are talking via voice interface. Answer in plain text like you would in a verbal conversation (e.g. don't use bullet points, tables or emojis) 
         and keep your answers short and to the point, as the users will hear them spoken aloud."""
 
-        self.system_prompt = config.PERSONA + "\n" + self.text_instructions
-        self.voice_prompt = config.PERSONA + "\n" + self.voice_instructions
+        self.system_prompt = config.PERSONA + "\n\n" + self.text_instructions.lstrip() + "\n\n" + config.RULES
+        self.voice_prompt = config.PERSONA + "\n\n" + self.voice_instructions.lstrip() + "\n\n" + config.RULES
 
         provider = OpenRouterProvider(api_key=config.OPENROUTER_API)
         model = OpenAIChatModel(model_name=config.REMOTE_TAG, provider=provider)
@@ -36,16 +36,12 @@ class AgentService:
         self.agent = Agent(voice_model, instructions=self.system_prompt, deps_type=AgentContext, tools=[search_tool])
         self.voice_agent = Agent(voice_model, instructions=self.voice_prompt)
 
-    async def run_text_agent(self, messages: list[Message]) -> AsyncGenerator[str, None]:
-        prompt = messages[-1]
-        history = messages[:-1]
+    async def run_text_agent(self, prompt: Message, history: list[Message]) -> AsyncGenerator[str, None]:
         async with self.agent.run_stream(self._toPrompt(prompt), message_history=self._toPydanticAI(history), deps=self.context) as result:
             async for partial in result.stream_text(delta=True):
                 yield partial
 
-    async def run_voice_agent(self, messages: list[Message]) -> AsyncGenerator[str, None]:
-        prompt = messages[-1]
-        history = messages[:-1]
+    async def run_voice_agent(self, prompt: Message, history: list[Message]) -> AsyncGenerator[str, None]:
         async with self.voice_agent.run_stream(self._toPrompt(prompt), message_history=self._toPydanticAI(history)) as result:
             async for partial in result.stream_text(delta=True):
                 yield partial

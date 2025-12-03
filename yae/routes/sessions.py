@@ -59,7 +59,7 @@ async def create_session(
     )
     return response
 
-@router.post("sessions/{session_uuid}", response_model=MessageResponse)
+@router.post("/sessions/{session_uuid}", response_model=MessageResponse)
 async def add_message(
     request: AddMessageRequest, 
     session_uuid: UUID,
@@ -78,8 +78,11 @@ async def add_message(
     if not message:
         raise HTTPException(status_code=500, detail="Session not created")
     
-    return message
-    
+    return MessageResponse(
+        name=user.name,
+        content=message.content,
+        created_at=message.created_at
+    )
 
 @router.get("/sessions/{session_uuid}", response_model=list[MessageResponse])
 async def get_session(

@@ -1,17 +1,41 @@
+import time
 from typing import AsyncGenerator, Optional
 from contextlib import asynccontextmanager
 
 from fastapi import Depends
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from yae.config import AppConfig
 from .services import DatabaseServices
 
+
+@asynccontextmanager
+async def profile_query(session: AsyncSession, query_name: str):
+    """Profile query execution time"""
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        elapsed = time.time() - start_time
+        if elapsed > 0.1:  # Log slow queries
+            print(f"Slow query detected: {query_name} took {elapsed:.3f}s")
+
+
 class DatabaseManager:
     """Manages database connections and sessions"""
     
     def __init__(self, database_url: str):
-        self.engine = create_async_engine(database_url, echo=False)
+        self.engine = create_async_engine(
+            database_url, 
+            echo=False,
+            connect_args={
+                "timeout": 30,
+                "check_same_thread": False
+            },
+            pool_pre_ping=True,
+            pool_recycle=3600
+        )
         self.session_factory = async_sessionmaker(
             bind=self.engine,
             class_=AsyncSession,
@@ -37,6 +61,12 @@ class DatabaseManager:
 
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+            await conn.execute(text("PRAGMA journal_mode=WAL"))
+            await conn.execute(text("PRAGMA synchronous=NORMAL"))
+            await conn.execute(text("PRAGMA cache_size=10000"))
+            await conn.execute(text("PRAGMA temp_store=MEMORY"))
+            await conn.execute(text("PRAGMA mmap_size=268435456"))
 
         async with self.get_session() as session:
             if not config:
@@ -68,6 +98,13 @@ class DatabaseManager:
 
                 session.add(admin)
                 await session.commit()
+
+    async def optimize_db(self):
+        """Run SQLite optimization commands"""
+        async with self.engine.begin() as conn:
+            await conn.execute(text("VACUUM"))
+            await conn.execute(text("ANALYZE"))
+            print("Database optimization completed.")
 
 
 # Global database manager instance

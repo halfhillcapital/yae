@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 import yae.utils as utils
 from yae.agents import AgentService, get_agent_service
 from yae.database import DatabaseServices, get_db_services
-from yae.database.models import Session
+from yae.database.models import Message, Session
 
 from .models import ChatMessage, ChatPlatform, ChatInterface
 
@@ -22,15 +22,9 @@ class ChatRequest(BaseModel):
     session: UUID
     attachments: Optional[list[str]]
 
-async def save_messages(assistant_response: str, session: Session, db_services: DatabaseServices):
-    yae = await db_services.users.by_id(1)
-    if not yae:
-        return
+async def save_messages(messages: list[Message], db_services: DatabaseServices):
+    await db_services.sessions.add_messages(messages)
 
-    await db_services.sessions.add_message(assistant_response, session, yae)
-
-
-#TODO: Look for ways to stream only the delta
 #TODO: Do not assume that the request comes from Discord
 @router.post("/chat")
 async def post_chat(
@@ -49,24 +43,33 @@ async def post_chat(
     if not session:
         return StreamingResponse(utils.stream_text("No valid session found!"))
     
-    user_message = await db_services.sessions.add_message(request.message.content, session, user)
-    messages = await db_services.sessions.get_last_messages(session.id, 10)
+    history = await db_services.sessions.get_last_messages(session.id, 10)
+    prompt = await db_services.sessions.add_message(request.message.content, session, user)
 
-    if not user_message:
+    if not prompt:
         return StreamingResponse(utils.stream_text("There is something wrong with your message!"))
 
     async def collect_and_stream():
         full_response = ""
         match request.interface:
             case ChatInterface.TEXT:
-                agent = agent_service.run_text_agent(messages)
+                agent = agent_service.run_text_agent(prompt, history)
             case ChatInterface.VOICE:
-                agent = agent_service.run_voice_agent(messages)
+                agent = agent_service.run_voice_agent(prompt, history)
 
-        async for chunk in agent:
-            full_response += chunk
-            yield chunk
+        try:
+            async for chunk in agent:
+                full_response += chunk
+                yield chunk
 
-        tasks.add_task(save_messages, full_response, session, db_services)
+            response = Message(
+                content=full_response.strip(),
+                user_id=1, # First user is always Yae
+                session_id=session.id
+            )
+            tasks.add_task(save_messages, [response], db_services)
+        except Exception as e:
+            print(e)
+            yield "There is something wrong with my AI!"
 
     return StreamingResponse(collect_and_stream(), media_type="text/event-stream")
