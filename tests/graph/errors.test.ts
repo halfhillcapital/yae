@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { Node, Flow, chain, converge, branch } from "@yae/graph";
+import { Node, Flow, chain, branch } from "@yae/graph";
 
 type SharedCalc = {
   result: number;
@@ -420,32 +420,33 @@ test("Error handling with branching", async () => {
   expect(shared.result).toBe(0);
 });
 
-test("Error in converged branches", async () => {
+test("Error in branch route with auto-converge", async () => {
   const shared: SharedCalc = { result: 0, logs: [] };
 
-  const start = new Node<SharedCalc>({
-    name: "Start",
+  const router = new Node<SharedCalc>({
+    name: "Router",
     prep: (s) => {
       s.result = 5;
     },
+    post: (s) => (s.result > 0 ? "path1" : "path2"),
   });
 
-  const branch1 = new Node<SharedCalc>({
-    name: "Branch 1",
+  const path1Node = new Node<SharedCalc>({
+    name: "Path 1",
     prep: () => {
-      throw new Error("Branch 1 error");
+      throw new Error("Path 1 error");
     },
     onError: (error, shared) => {
-      shared.logs?.push("Branch 1 error handled");
+      shared.logs?.push("Path 1 error handled");
       return undefined;
     },
   });
 
-  const branch2 = new Node<SharedCalc>({
-    name: "Branch 2",
+  const path2Node = new Node<SharedCalc>({
+    name: "Path 2",
     prep: (s) => {
       s.result += 10;
-      s.logs?.push("Branch 2 success");
+      s.logs?.push("Path 2 success");
     },
   });
 
@@ -456,12 +457,14 @@ test("Error in converged branches", async () => {
     },
   });
 
-  const convergeNode = converge([branch1, branch2], end);
-  convergeNode.name = "converge point";
+  // Set up branching with auto-converge to end node
+  chain(branch(router, { path1: [path1Node], path2: [path2Node] }), end);
 
-  // This test shows the limitation: we can't test converged branches easily
-  // because branch() doesn't work the same way. This is expected behavior.
-  // Just documenting it here for completeness.
+  const flow = Flow.from(router);
+  await flow.run(shared);
+
+  expect(shared.logs).toEqual(["Path 1 error handled", "End"]);
+  expect(shared.result).toBe(5);
 });
 
 test("Async error handling", async () => {

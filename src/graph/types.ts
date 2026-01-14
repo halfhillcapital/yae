@@ -2,7 +2,7 @@ interface GraphNode<S> {
   name?: string;
   work(shared: S): Promise<NextAction>;
   next(action?: Action): GraphNode<S> | undefined;
-  to<T extends GraphNode<S>>(node: T): T;
+  to(target: Chainable<S>): GraphNode<S>;
   when<T extends GraphNode<S>>(action: Action, node: T): this;
   clone(): GraphNode<S>;
 }
@@ -20,7 +20,20 @@ type Branch<S> = {
  */
 type Chainable<S> = GraphNode<S> | Branch<S>;
 
+/**
+ * Type guard to check if a Chainable is a Branch.
+ */
+function isBranch<S>(item: Chainable<S>): item is Branch<S> {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "entry" in item &&
+    "exit" in item
+  );
+}
+
 type Action = string;
 type NextAction = Action | undefined;
 
+export { isBranch };
 export type { GraphNode, Branch, Chainable, Action, NextAction };

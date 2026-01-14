@@ -23,7 +23,7 @@ The core abstraction is a **directed graph of nodes** with prep/exec/post phases
 
 **File structure:**
 
-- `types.ts` - Type definitions (`Action`, `NextAction`)
+- `types.ts` - Type definitions (`GraphNode`, `Branch`, `Chainable`, `Action`, `NextAction`, `isBranch`)
 - `node.ts` - BaseNode, Node, ParallelNode classes
 - `flow.ts` - Flow class
 - `utils.ts` - Factory functions and helpers
@@ -72,7 +72,7 @@ const batch = parallel<MyState>()({
 
 **Node chaining API:**
 
-- `node.to(next)` - Default transition
+- `node.to(target)` - Default transition (accepts `GraphNode` or `Branch`, returns exit point for chaining)
 - `node.when(action, next)` - Conditional branching based on `post()` return
 
 **Utility functions:**
@@ -81,7 +81,6 @@ const batch = parallel<MyState>()({
 - `parallel<S>()` - Curried factory for creating ParallelNode with type inference
 - `chain(...items)` - Link nodes/branches sequentially, returns first node
 - `branch(router, routes)` - Create branching structure, returns `{ entry, exit }`
-- `converge(nodes, target)` - Point multiple nodes to a new target
 - `sequential(nodes, config?)` - Create Flow from node array
 - `Flow.from(start, config?)` - Static factory for creating Flow
 
@@ -104,6 +103,9 @@ chain(
   branch(router2, { x: [pathX], y: [pathY] }),
   finalNode
 );
+
+// Fluent chaining with to()
+node1.to(branch(router, { a: [pathA], b: [pathB] })).to(node2);
 
 // Access entry/exit directly when needed
 const { entry, exit } = branch(router, { ... });

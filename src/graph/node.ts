@@ -1,4 +1,4 @@
-import type { GraphNode, Action, NextAction } from "./types";
+import { isBranch, type GraphNode, type Chainable, type Action, type NextAction } from "./types";
 
 // ============================================================================
 // BaseNode
@@ -95,9 +95,13 @@ class BaseNode<S, P = void, E = void> implements GraphNode<S> {
     return this;
   }
 
-  to<T extends GraphNode<S>>(node: T): T {
-    this._succeed("default", node);
-    return node;
+  to(target: Chainable<S>): GraphNode<S> {
+    if (isBranch(target)) {
+      this._succeed("default", target.entry);
+      return target.exit;
+    }
+    this._succeed("default", target);
+    return target;
   }
 
   when<T extends GraphNode<S>>(action: Action, node: T): this {

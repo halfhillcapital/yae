@@ -5,7 +5,6 @@ import {
   Flow,
   node,
   chain,
-  converge,
   branch,
 } from "@yae/graph";
 
@@ -638,7 +637,7 @@ test("Flow onError hook not called when node handles error", async () => {
 test("Diamond pattern workflow", async () => {
   const shared: TestState = { value: 0, logs: [], executed: [] };
 
-  // Start -> Split -> [Path A, Path B] -> converge -> End
+  // Start -> Split -> [Path A, Path B] -> End
   const start = new BaseNode<TestState>({
     name: "Start",
     prep: (s) => {
@@ -672,9 +671,8 @@ test("Diamond pattern workflow", async () => {
     },
   });
 
-  branch(start, { high: [pathA], low: [pathB] });
-  const convergePoint = converge([pathA, pathB], end);
-  convergePoint.name = "converge";
+  // Using new API: chain handles branch structures naturally
+  chain(branch(start, { high: [pathA], low: [pathB] }), end);
 
   await Flow.from(start).run(shared);
 

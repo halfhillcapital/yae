@@ -6,18 +6,7 @@ import {
   type ParallelNodeConfig,
 } from "./node";
 import { Flow, type FlowConfig } from "./flow";
-import type { GraphNode, Branch, Chainable, Action } from "./types";
-
-
-function isBranch<S>(item: Chainable<S>): item is Branch<S> {
-  return (
-    typeof item === "object" &&
-    item !== null &&
-    "entry" in item &&
-    "exit" in item
-  );
-}
-
+import { isBranch, type GraphNode, type Branch, type Chainable, type Action } from "./types";
 
 // Node Utilities
 
@@ -92,20 +81,6 @@ function chain<S>(...items: Chainable<S>[]): GraphNode<S> {
   return first;
 }
 
-function converge<S>(
-  nodes: GraphNode<S>[],
-  target: GraphNode<S>,
-): GraphNode<S> {
-  if (nodes.length === 0) {
-    throw new Error("converge() requires at least one node");
-  }
-
-  for (const node of nodes) {
-    node.to(target);
-  }
-  return target;
-}
-
 /**
  * Creates a branching structure where `router` routes to different node chains
  * based on actions, with all branches converging to an auto-created exit node.
@@ -159,4 +134,4 @@ function sequential<S>(nodes: GraphNode<S>[], config?: FlowConfig<S>): Flow<S> {
   return Flow.from(chain(...nodes), config);
 }
 
-export { node, parallel, chain, branch, converge, sequential };
+export { node, parallel, chain, branch, sequential };
