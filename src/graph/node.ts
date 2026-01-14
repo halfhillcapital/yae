@@ -1,13 +1,8 @@
-import type { Action, NextAction } from "./types";
+import type { GraphNode, Action, NextAction } from "./types";
 
-interface GraphNode<S> {
-  name?: string;
-  work(shared: S): Promise<NextAction>;
-  next(action?: Action): GraphNode<S> | undefined;
-  to<T extends GraphNode<S>>(node: T): T;
-  when<T extends GraphNode<S>>(action: Action, node: T): this;
-  clone(): GraphNode<S>;
-}
+// ============================================================================
+// BaseNode
+// ============================================================================
 
 type BaseNodeConfig<S, P, E> = {
   name?: string;
@@ -148,6 +143,10 @@ class BaseNode<S, P = void, E = void> implements GraphNode<S> {
   }
 }
 
+// ============================================================================
+// Node
+// ============================================================================
+
 type RetryConfig = {
   maxAttempts: number;
   delay?: number; // milliseconds
@@ -235,6 +234,10 @@ class Node<S, P = void, E = void> extends BaseNode<S, P, E> {
   }
 }
 
+// ============================================================================
+// ParallelNode
+// ============================================================================
+
 type ParallelNodeConfig<S, P = void, E = void> = {
   name?: string;
   prep: (shared: S) => Promise<P[]> | P[];
@@ -271,4 +274,4 @@ class ParallelNode<S, P = void, E = void> extends Node<S, P[] | P, E[] | E> {
 }
 
 export { BaseNode, Node, ParallelNode };
-export type { GraphNode, NodeConfig, ParallelNodeConfig };
+export type { NodeConfig, ParallelNodeConfig };

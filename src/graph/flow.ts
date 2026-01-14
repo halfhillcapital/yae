@@ -1,6 +1,5 @@
 import { BaseNode } from "./node";
-import type { GraphNode } from "./node";
-import type { NextAction } from "./types";
+import type { GraphNode, NextAction } from "./types";
 
 type FlowConfig<S> = {
   name?: string;

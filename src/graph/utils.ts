@@ -2,25 +2,12 @@ import {
   BaseNode,
   Node,
   ParallelNode,
-  type GraphNode,
   type NodeConfig,
   type ParallelNodeConfig,
 } from "./node";
 import { Flow, type FlowConfig } from "./flow";
-import type { Action } from "./types";
+import type { GraphNode, Branch, Chainable, Action } from "./types";
 
-/**
- * A branch structure with entry and exit points for use in chain().
- */
-type Branch<S> = {
-  entry: GraphNode<S>;
-  exit: GraphNode<S>;
-};
-
-/**
- * Either a single node or a branch structure that can be used in chain().
- */
-type Chainable<S> = GraphNode<S> | Branch<S>;
 
 function isBranch<S>(item: Chainable<S>): item is Branch<S> {
   return (
@@ -30,6 +17,7 @@ function isBranch<S>(item: Chainable<S>): item is Branch<S> {
     "exit" in item
   );
 }
+
 
 // Node Utilities
 
@@ -172,4 +160,3 @@ function sequential<S>(nodes: GraphNode<S>[], config?: FlowConfig<S>): Flow<S> {
 }
 
 export { node, parallel, chain, branch, converge, sequential };
-export type { Branch, Chainable };
