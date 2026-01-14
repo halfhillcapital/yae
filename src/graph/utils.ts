@@ -28,12 +28,16 @@ const parallel = <S>() => {
   };
 };
 
+/**
+ * Internal helper that chains nodes and returns both first and last references.
+ * Used by `chain` and `branch` utilities.
+ */
 function ouroboros<S>(...nodes: GraphNode<S>[]): {
   first: GraphNode<S>;
   last: GraphNode<S>;
 } {
   if (nodes.length === 0) {
-    throw new Error("chain() requires at least one node");
+    throw new Error("At least one node required");
   }
 
   for (let i = 0; i < nodes.length - 1; i++) {
@@ -75,8 +79,31 @@ function converge<S>(
   return target;
 }
 
-function branch<K extends string, T extends GraphNode<S>, S>(start: GraphNode<S>, routes: Record<K, T[]>, end: GraphNode<S>): GraphNode<S> {
-  for (const [action, nodes] of Object.entries(routes) as [Action, T[]][]) {
+/**
+ * Creates a branching structure where `start` routes to different node chains
+ * based on actions, with all branches converging to `end`.
+ *
+ * @example
+ * branch(router, {
+ *   success: [processNode, saveNode],
+ *   error: [logErrorNode],
+ * }, finalNode);
+ */
+function branch<S, K extends string, T extends GraphNode<S>>(
+  start: GraphNode<S>,
+  routes: Record<K, T[]>,
+  end: GraphNode<S>,
+): GraphNode<S> {
+  const entries = Object.entries(routes) as [Action, T[]][];
+
+  if (entries.length === 0) {
+    throw new Error("branch() requires at least one route");
+  }
+
+  for (const [action, nodes] of entries) {
+    if (nodes.length === 0) {
+      throw new Error(`branch() route "${action}" cannot be empty`);
+    }
     const { first, last } = ouroboros<S>(...nodes);
     start.when(action, first);
     last.to(end);
