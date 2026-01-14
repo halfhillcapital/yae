@@ -110,15 +110,6 @@ class BaseNode<S, P = void, E = void> implements GraphNode<S> {
     return this;
   }
 
-  branch<K extends string, T extends GraphNode<S>>(
-    routes: Record<K, T>,
-  ): Record<K, T> {
-    for (const [action, node] of Object.entries(routes) as [Action, T][]) {
-      this._succeed(action, node);
-    }
-    return routes;
-  }
-
   /**
    * Get the next node for a given action.
    * @throws Error if successors exist but the action is not registered (likely a typo)
@@ -190,7 +181,7 @@ class Node<S, P = void, E = void> extends BaseNode<S, P, E> {
     this.timeout = config?.timeout;
   }
 
-  async fallback(prepResult: P, error: Error): Promise<E> {
+  protected async fallback(prepResult: P, error: Error): Promise<E> {
     throw error;
   }
 

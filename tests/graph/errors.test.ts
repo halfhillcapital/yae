@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { Node, Flow, chain, converge } from "@yae/graph";
+import { Node, Flow, chain, converge, branch } from "@yae/graph";
 
 type SharedCalc = {
   result: number;
@@ -147,9 +147,9 @@ test("onError can route to different branches based on error type", async () => 
     },
   });
 
-  node.branch({
-    validation_error: validationHandler,
-    general_error: generalHandler,
+  branch(node, {
+    validation_error: [validationHandler],
+    general_error: [generalHandler],
   });
 
   const flow = Flow.from(node);
@@ -400,9 +400,10 @@ test("Error handling with branching", async () => {
     },
   });
 
-  start.to(checkNode).branch({
-    positive: positiveNode,
-    negative: negativeNode,
+  start.to(checkNode);
+  branch(checkNode, {
+    positive: [positiveNode],
+    negative: [negativeNode],
   });
 
   positiveNode.when("error_recovery", errorRecovery);

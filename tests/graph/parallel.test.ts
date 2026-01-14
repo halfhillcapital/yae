@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { Node, ParallelNode, Flow, chain, parallel } from "@yae/graph";
+import { Node, ParallelNode, Flow, chain, parallel, branch } from "@yae/graph";
 
 type TestState = {
   items: number[];
@@ -704,7 +704,7 @@ test("ParallelNode with branching based on results", async () => {
     },
   });
 
-  parallel.branch({ high: highNode, low: lowNode });
+  branch(parallel, { high: [highNode], low: [lowNode] });
 
   await Flow.from(parallel).run(shared);
 

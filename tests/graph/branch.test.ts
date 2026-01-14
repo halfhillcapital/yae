@@ -10,7 +10,7 @@ type TestState = {
 // branch() Utility Function Tests
 // ============================================================================
 
-test("branch creates routing from start to multiple paths converging at end", async () => {
+test("branch creates routing from start to multiple paths converging at auto-created exit", async () => {
   const shared: TestState = { value: 10, executed: [] };
 
   const router = new BaseNode<TestState>({
@@ -37,18 +37,12 @@ test("branch creates routing from start to multiple paths converging at end", as
     },
   });
 
-  const end = new BaseNode<TestState>({
-    name: "End",
-    prep: (s) => {
-      s.executed.push("end");
-    },
-  });
+  const { entry, exit } = branch(router, { high: [highPath], low: [lowPath] });
 
-  branch(router, { high: [highPath], low: [lowPath] }, end);
+  expect(entry).toBe(router);
+  await Flow.from(entry).run(shared);
 
-  await Flow.from(router).run(shared);
-
-  expect(shared.executed).toEqual(["router", "high", "end"]);
+  expect(shared.executed).toEqual(["router", "high"]);
   expect(shared.value).toBe(110);
 });
 
@@ -84,45 +78,37 @@ test("branch with multi-node routes", async () => {
     },
   });
 
-  const end = new BaseNode<TestState>({
-    name: "End",
-    prep: (s) => {
-      s.executed.push("end");
-    },
-  });
-
-  branch(router, { process: [step1, step2, step3] }, end);
+  branch(router, { process: [step1, step2, step3] });
 
   await Flow.from(router).run(shared);
 
-  expect(shared.executed).toEqual(["step1", "step2", "step3", "end"]);
+  expect(shared.executed).toEqual(["step1", "step2", "step3"]);
   expect(shared.value).toBe(25); // (10 * 2) + 5
 });
 
-test("branch returns the end node", () => {
-  const start = new BaseNode<TestState>({ name: "Start" });
+test("branch returns entry and exit nodes", () => {
+  const router = new BaseNode<TestState>({ name: "Router" });
   const pathA = new BaseNode<TestState>({ name: "Path A" });
-  const end = new BaseNode<TestState>({ name: "End" });
 
-  const result = branch(start, { action: [pathA] }, end);
+  const result = branch(router, { action: [pathA] });
 
-  expect(result).toBe(end);
+  expect(result.entry).toBe(router);
+  expect(result.exit).toBeDefined();
+  expect(result.exit).not.toBe(router);
 });
 
 test("branch throws on empty routes object", () => {
-  const start = new BaseNode<TestState>();
-  const end = new BaseNode<TestState>();
+  const router = new BaseNode<TestState>();
 
-  expect(() => branch(start, {}, end)).toThrow(
+  expect(() => branch(router, {})).toThrow(
     "branch() requires at least one route",
   );
 });
 
 test("branch throws on empty route array with action name", () => {
-  const start = new BaseNode<TestState>();
-  const end = new BaseNode<TestState>();
+  const router = new BaseNode<TestState>();
 
-  expect(() => branch(start, { myAction: [] }, end)).toThrow(
+  expect(() => branch(router, { myAction: [] })).toThrow(
     'branch() route "myAction" cannot be empty',
   );
 });
@@ -140,20 +126,14 @@ test("branch with single route", async () => {
     },
   });
 
-  const end = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("end");
-    },
-  });
-
-  branch(router, { only: [onlyPath] }, end);
+  branch(router, { only: [onlyPath] });
 
   await Flow.from(router).run(shared);
 
-  expect(shared.executed).toEqual(["only", "end"]);
+  expect(shared.executed).toEqual(["only"]);
 });
 
-test("branch allows chaining after end node", async () => {
+test("branch exit can be chained to next node", async () => {
   const shared: TestState = { value: 0, executed: [] };
 
   const router = new BaseNode<TestState>({
@@ -166,23 +146,17 @@ test("branch allows chaining after end node", async () => {
     },
   });
 
-  const end = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("end");
-    },
-  });
-
-  const afterEnd = new BaseNode<TestState>({
+  const afterBranch = new BaseNode<TestState>({
     prep: (s) => {
       s.executed.push("after");
     },
   });
 
-  branch(router, { path: [pathNode] }, end).to(afterEnd);
+  branch(router, { path: [pathNode] }).exit.to(afterBranch);
 
   await Flow.from(router).run(shared);
 
-  expect(shared.executed).toEqual(["path", "end", "after"]);
+  expect(shared.executed).toEqual(["path", "after"]);
 });
 
 test("branch with typed node factory", async () => {
@@ -224,9 +198,7 @@ test("branch with typed node factory", async () => {
     },
   });
 
-  const end = new BaseNode<CalcState>({ name: "End" });
-
-  branch(router, { big: [bigCalc], small: [smallCalc] }, end);
+  branch(router, { big: [bigCalc], small: [smallCalc] });
 
   await Flow.from(router).run(shared);
 
@@ -252,30 +224,211 @@ test("branch routes do not interfere with each other", async () => {
     },
   });
 
+  branch(router, { positive: [positive], negative: [negative] });
+
+  // Test positive path
+  const shared1: TestState = { value: 5, executed: [] };
+  await Flow.from(router).run(shared1);
+  expect(shared1.executed).toEqual(["positive"]);
+
+  // Test negative path
+  const shared2: TestState = { value: -5, executed: [] };
+  await Flow.from(router).run(shared2);
+  expect(shared2.executed).toEqual(["negative"]);
+});
+
+// ============================================================================
+// chain() with branch() Tests - The Main New Feature
+// ============================================================================
+
+test("chain(node1, branch(...), node2) works naturally", async () => {
+  const shared: TestState = { value: 10, executed: [] };
+
+  const start = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("start");
+    },
+  });
+
+  const router = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("router");
+    },
+    post: (s) => (s.value > 5 ? "high" : "low"),
+  });
+
+  const highPath = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("high");
+    },
+  });
+
+  const lowPath = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("low");
+    },
+  });
+
   const end = new BaseNode<TestState>({
     prep: (s) => {
       s.executed.push("end");
     },
   });
 
-  branch(router, { positive: [positive], negative: [negative] }, end);
+  // The new natural chaining syntax!
+  chain(start, branch(router, { high: [highPath], low: [lowPath] }), end);
 
-  // Test positive path
-  const shared1: TestState = { value: 5, executed: [] };
-  await Flow.from(router).run(shared1);
-  expect(shared1.executed).toEqual(["positive", "end"]);
+  await Flow.from(start).run(shared);
 
-  // Test negative path
-  const shared2: TestState = { value: -5, executed: [] };
-  await Flow.from(router).run(shared2);
-  expect(shared2.executed).toEqual(["negative", "end"]);
+  expect(shared.executed).toEqual(["start", "router", "high", "end"]);
+});
+
+test("chain with branch taking low path", async () => {
+  const shared: TestState = { value: 3, executed: [] };
+
+  const start = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("start");
+    },
+  });
+
+  const router = new BaseNode<TestState>({
+    post: (s) => (s.value > 5 ? "high" : "low"),
+  });
+
+  const highPath = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("high");
+    },
+  });
+
+  const lowPath = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("low");
+    },
+  });
+
+  const end = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("end");
+    },
+  });
+
+  chain(start, branch(router, { high: [highPath], low: [lowPath] }), end);
+
+  await Flow.from(start).run(shared);
+
+  expect(shared.executed).toEqual(["start", "low", "end"]);
+});
+
+test("multiple branches in chain", async () => {
+  type MultiState = {
+    phase1: string;
+    phase2: string;
+    executed: string[];
+  };
+
+  const shared: MultiState = { phase1: "a", phase2: "y", executed: [] };
+
+  const router1 = new BaseNode<MultiState>({
+    prep: (s) => {
+      s.executed.push("router1");
+    },
+    post: (s) => s.phase1,
+  });
+
+  const path1A = new BaseNode<MultiState>({
+    prep: (s) => {
+      s.executed.push("1a");
+    },
+  });
+
+  const path1B = new BaseNode<MultiState>({
+    prep: (s) => {
+      s.executed.push("1b");
+    },
+  });
+
+  const router2 = new BaseNode<MultiState>({
+    prep: (s) => {
+      s.executed.push("router2");
+    },
+    post: (s) => s.phase2,
+  });
+
+  const path2X = new BaseNode<MultiState>({
+    prep: (s) => {
+      s.executed.push("2x");
+    },
+  });
+
+  const path2Y = new BaseNode<MultiState>({
+    prep: (s) => {
+      s.executed.push("2y");
+    },
+  });
+
+  const end = new BaseNode<MultiState>({
+    prep: (s) => {
+      s.executed.push("end");
+    },
+  });
+
+  // Two branches in sequence using chain
+  chain(
+    branch(router1, { a: [path1A], b: [path1B] }),
+    branch(router2, { x: [path2X], y: [path2Y] }),
+    end,
+  );
+
+  await Flow.from(router1).run(shared);
+
+  expect(shared.executed).toEqual(["router1", "1a", "router2", "2y", "end"]);
+});
+
+test("branch with multi-node routes in chain", async () => {
+  const shared: TestState = { value: 0, executed: [] };
+
+  const start = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("start");
+    },
+  });
+
+  const router = new BaseNode<TestState>({
+    post: () => "process",
+  });
+
+  const step1 = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("step1");
+    },
+  });
+
+  const step2 = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("step2");
+    },
+  });
+
+  const end = new BaseNode<TestState>({
+    prep: (s) => {
+      s.executed.push("end");
+    },
+  });
+
+  chain(start, branch(router, { process: [step1, step2] }), end);
+
+  await Flow.from(start).run(shared);
+
+  expect(shared.executed).toEqual(["start", "step1", "step2", "end"]);
 });
 
 // ============================================================================
 // Nested branch() Tests
 // ============================================================================
 
-test("nested branches - connect inner end to outer end using return value", async () => {
+test("nested branches using chain", async () => {
   type NestedState = {
     level1: string;
     level2: string;
@@ -285,71 +438,54 @@ test("nested branches - connect inner end to outer end using return value", asyn
   const shared: NestedState = { level1: "a", level2: "x", executed: [] };
 
   const outerRouter = new BaseNode<NestedState>({
-    name: "Outer Router",
     prep: (s) => {
       s.executed.push("outer-router");
     },
     post: (s) => s.level1,
   });
 
-  // Inner branch for route "a"
-  const innerRouterA = new BaseNode<NestedState>({
-    name: "Inner Router A",
+  const innerRouter = new BaseNode<NestedState>({
     prep: (s) => {
-      s.executed.push("inner-router-a");
+      s.executed.push("inner-router");
     },
     post: (s) => s.level2,
   });
 
-  const pathAX = new BaseNode<NestedState>({
+  const pathX = new BaseNode<NestedState>({
     prep: (s) => {
-      s.executed.push("a-x");
+      s.executed.push("x");
     },
   });
 
-  const pathAY = new BaseNode<NestedState>({
+  const pathY = new BaseNode<NestedState>({
     prep: (s) => {
-      s.executed.push("a-y");
+      s.executed.push("y");
     },
   });
 
-  const innerEndA = new BaseNode<NestedState>({
-    prep: (s) => {
-      s.executed.push("inner-end-a");
-    },
-  });
-
-  // Route "b" is simple
   const pathB = new BaseNode<NestedState>({
     prep: (s) => {
       s.executed.push("b");
     },
   });
 
-  const outerEnd = new BaseNode<NestedState>({
+  const end = new BaseNode<NestedState>({
     prep: (s) => {
-      s.executed.push("outer-end");
+      s.executed.push("end");
     },
   });
 
-  // Wire inner branch and capture the returned end node
-  const innerEnd = branch(innerRouterA, { x: [pathAX], y: [pathAY] }, innerEndA);
+  // Nested branch: route "a" contains another branch
+  const innerBranch = branch(innerRouter, { x: [pathX], y: [pathY] });
 
-  // Wire outer branch
-  branch(outerRouter, { a: [innerRouterA], b: [pathB] }, outerEnd);
+  chain(branch(outerRouter, { a: [innerRouter], b: [pathB] }), end);
 
-  // Connect inner end to outer end
-  innerEnd.to(outerEnd);
+  // Connect inner branch exit to outer branch's auto-exit -> end
+  innerBranch.exit.to(end);
 
   await Flow.from(outerRouter).run(shared);
 
-  expect(shared.executed).toEqual([
-    "outer-router",
-    "inner-router-a",
-    "a-x",
-    "inner-end-a",
-    "outer-end",
-  ]);
+  expect(shared.executed).toEqual(["outer-router", "inner-router", "x", "end"]);
 });
 
 test("nested branches - different inner path", async () => {
@@ -365,26 +501,24 @@ test("nested branches - different inner path", async () => {
     post: (s) => s.level1,
   });
 
-  const innerRouterA = new BaseNode<NestedState>({
+  const innerRouter = new BaseNode<NestedState>({
     prep: (s) => {
       s.executed.push("inner-router");
     },
     post: (s) => s.level2,
   });
 
-  const pathAX = new BaseNode<NestedState>({
+  const pathX = new BaseNode<NestedState>({
     prep: (s) => {
-      s.executed.push("a-x");
+      s.executed.push("x");
     },
   });
 
-  const pathAY = new BaseNode<NestedState>({
+  const pathY = new BaseNode<NestedState>({
     prep: (s) => {
-      s.executed.push("a-y");
+      s.executed.push("y");
     },
   });
-
-  const innerEndA = new BaseNode<NestedState>({ name: "Inner End" });
 
   const pathB = new BaseNode<NestedState>({
     prep: (s) => {
@@ -392,104 +526,29 @@ test("nested branches - different inner path", async () => {
     },
   });
 
-  const outerEnd = new BaseNode<NestedState>({
+  const end = new BaseNode<NestedState>({
     prep: (s) => {
-      s.executed.push("outer-end");
+      s.executed.push("end");
     },
   });
 
-  // Wire inner branch and connect its end to outer end
-  branch(innerRouterA, { x: [pathAX], y: [pathAY] }, innerEndA).to(outerEnd);
-  branch(outerRouter, { a: [innerRouterA], b: [pathB] }, outerEnd);
+  const innerBranch = branch(innerRouter, { x: [pathX], y: [pathY] });
+  const outerBranch = branch(outerRouter, { a: [innerRouter], b: [pathB] });
+
+  // Connect both branch exits to end
+  innerBranch.exit.to(end);
+  outerBranch.exit.to(end);
 
   await Flow.from(outerRouter).run(shared);
 
-  // Should take y path in nested branch
-  expect(shared.executed).toEqual(["inner-router", "a-y", "outer-end"]);
-});
-
-test("deeply nested branches (3 levels)", async () => {
-  type DeepState = {
-    l1: string;
-    l2: string;
-    l3: string;
-    executed: string[];
-  };
-
-  const shared: DeepState = { l1: "a", l2: "b", l3: "c", executed: [] };
-
-  const l1End = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l1-end");
-    },
-  });
-
-  // Level 3 (innermost)
-  const l3Router = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l3-router");
-    },
-    post: (s) => s.l3,
-  });
-  const l3PathC = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l3-c");
-    },
-  });
-  const l3PathD = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l3-d");
-    },
-  });
-  const l3End = new BaseNode<DeepState>({ name: "L3 End" });
-  branch(l3Router, { c: [l3PathC], d: [l3PathD] }, l3End).to(l1End);
-
-  // Level 2
-  const l2Router = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l2-router");
-    },
-    post: (s) => s.l2,
-  });
-  const l2PathA = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l2-a");
-    },
-  });
-  const l2End = new BaseNode<DeepState>({ name: "L2 End" });
-  // Route "b" leads to l3Router
-  branch(l2Router, { a: [l2PathA], b: [l3Router] }, l2End).to(l1End);
-
-  // Level 1 (outermost)
-  const l1Router = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l1-router");
-    },
-    post: (s) => s.l1,
-  });
-  const l1PathX = new BaseNode<DeepState>({
-    prep: (s) => {
-      s.executed.push("l1-x");
-    },
-  });
-  branch(l1Router, { a: [l2Router], x: [l1PathX] }, l1End);
-
-  await Flow.from(l1Router).run(shared);
-
-  expect(shared.executed).toEqual([
-    "l1-router",
-    "l2-router",
-    "l3-router",
-    "l3-c",
-    "l1-end",
-  ]);
+  expect(shared.executed).toEqual(["inner-router", "y", "end"]);
 });
 
 // ============================================================================
 // branch() with chain() and sequential() Tests
 // ============================================================================
 
-test("branch after chain", async () => {
+test("branch after chain prefix", async () => {
   const shared: TestState = { value: 0, executed: [] };
 
   const step1 = new BaseNode<TestState>({
@@ -531,9 +590,13 @@ test("branch after chain", async () => {
     },
   });
 
-  // Chain leads into router, which branches
-  chain(step1, step2, router);
-  branch(router, { high: [highPath], low: [lowPath] }, end);
+  // Chain prefix leads into branch which leads to end
+  chain(
+    step1,
+    step2,
+    branch(router, { high: [highPath], low: [lowPath] }),
+    end,
+  );
 
   await Flow.from(step1).run(shared);
 
@@ -541,62 +604,7 @@ test("branch after chain", async () => {
   expect(shared.executed).toEqual(["step1", "step2", "router", "high", "end"]);
 });
 
-test("branch before chain continuation", async () => {
-  const shared: TestState = { value: 10, executed: [] };
-
-  const router = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("router");
-    },
-    post: (s) => (s.value > 5 ? "big" : "small"),
-  });
-
-  const bigPath = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("big");
-    },
-  });
-
-  const smallPath = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("small");
-    },
-  });
-
-  const convergePoint = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("converge");
-    },
-  });
-
-  const final1 = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("final1");
-    },
-  });
-
-  const final2 = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("final2");
-    },
-  });
-
-  // Branch converges, then chain continues
-  branch(router, { big: [bigPath], small: [smallPath] }, convergePoint);
-  chain(convergePoint, final1, final2);
-
-  await Flow.from(router).run(shared);
-
-  expect(shared.executed).toEqual([
-    "router",
-    "big",
-    "converge",
-    "final1",
-    "final2",
-  ]);
-});
-
-test("branch inside sequential flow", async () => {
+test("branch used in sequential flow", async () => {
   const shared: TestState = { value: 3, executed: [] };
 
   const init = new BaseNode<TestState>({
@@ -624,124 +632,34 @@ test("branch inside sequential flow", async () => {
     },
   });
 
-  const afterBranch = new BaseNode<TestState>({
-    prep: (s) => {
-      s.executed.push("after-branch");
-    },
-  });
-
   const cleanup = new BaseNode<TestState>({
     prep: (s) => {
       s.executed.push("cleanup");
     },
   });
 
-  // Set up branch
-  branch(router, { above: [above], below: [below] }, afterBranch);
+  // Using branch in chain, then wrapping in sequential
+  const flow = sequential([
+    init,
+    branch(router, { above: [above], below: [below] }).entry,
+    cleanup,
+  ]);
 
-  // Create sequential flow: init -> router -> (branch) -> afterBranch -> cleanup
-  const flow = sequential([init, router, afterBranch, cleanup]);
+  // Need to connect the branch exit to cleanup
+  branch(router, { above: [above], below: [below] }).exit.to(cleanup);
 
   await flow.run(shared);
 
-  // Note: sequential chains init->router->afterBranch->cleanup
-  // but branch also connects router->(above|below)->afterBranch
-  // So the path is: init -> router -> below -> afterBranch -> cleanup
-  expect(shared.executed).toEqual([
-    "init",
-    "router",
-    "below",
-    "after-branch",
-    "cleanup",
-  ]);
+  expect(shared.executed).toEqual(["init", "router", "below", "cleanup"]);
 });
 
-test("multiple branches in sequence", async () => {
-  type MultiState = {
-    phase1: string;
-    phase2: string;
-    executed: string[];
-  };
-
-  const shared: MultiState = { phase1: "a", phase2: "y", executed: [] };
-
-  const router1 = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("router1");
-    },
-    post: (s) => s.phase1,
-  });
-
-  const path1A = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("1a");
-    },
-  });
-
-  const path1B = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("1b");
-    },
-  });
-
-  const middle = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("middle");
-    },
-  });
-
-  const router2 = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("router2");
-    },
-    post: (s) => s.phase2,
-  });
-
-  const path2X = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("2x");
-    },
-  });
-
-  const path2Y = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("2y");
-    },
-  });
-
-  const end = new BaseNode<MultiState>({
-    prep: (s) => {
-      s.executed.push("end");
-    },
-  });
-
-  // First branch converges to middle
-  branch(router1, { a: [path1A], b: [path1B] }, middle);
-  // Chain middle to second router
-  chain(middle, router2);
-  // Second branch converges to end
-  branch(router2, { x: [path2X], y: [path2Y] }, end);
-
-  await Flow.from(router1).run(shared);
-
-  expect(shared.executed).toEqual([
-    "router1",
-    "1a",
-    "middle",
-    "router2",
-    "2y",
-    "end",
-  ]);
-});
-
-test("chain used within branch routes", async () => {
+test("chain with branch routes containing multiple nodes", async () => {
   const shared: TestState = { value: 0, executed: [] };
 
   const router = new BaseNode<TestState>({
     post: () => "process",
   });
 
-  // Create a pre-chained sequence for the route
   const a = new BaseNode<TestState>({
     prep: (s) => {
       s.executed.push("a");
@@ -764,8 +682,7 @@ test("chain used within branch routes", async () => {
     },
   });
 
-  // branch with array of nodes (internally uses ouroboros to chain them)
-  branch(router, { process: [a, b, c] }, end);
+  chain(branch(router, { process: [a, b, c] }), end);
 
   await Flow.from(router).run(shared);
 

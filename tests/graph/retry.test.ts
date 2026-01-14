@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { Node, Flow, chain } from "@yae/graph";
+import { Node, Flow, chain, branch } from "@yae/graph";
 
 type SharedCalc = {
   result: number;
@@ -298,9 +298,9 @@ test("Retry with onError that routes based on error", async () => {
     },
   });
 
-  node.branch({
-    auth_error: authHandler,
-    network_error: networkHandler,
+  branch(node, {
+    auth_error: [authHandler],
+    network_error: [networkHandler],
   });
 
   const flow = Flow.from(node);

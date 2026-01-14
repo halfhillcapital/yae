@@ -74,16 +74,41 @@ const batch = parallel<MyState>()({
 
 - `node.to(next)` - Default transition
 - `node.when(action, next)` - Conditional branching based on `post()` return
-- `node.branch({ action1: node1, action2: node2 })` - Multi-branch
 
 **Utility functions:**
 
 - `node<S>()` - Curried factory for creating Node with type inference
 - `parallel<S>()` - Curried factory for creating ParallelNode with type inference
-- `chain(...nodes)` - Link nodes sequentially, returns first
+- `chain(...items)` - Link nodes/branches sequentially, returns first node
+- `branch(router, routes)` - Create branching structure, returns `{ entry, exit }`
 - `converge(nodes, target)` - Point multiple nodes to a new target
 - `sequential(nodes, config?)` - Create Flow from node array
 - `Flow.from(start, config?)` - Static factory for creating Flow
+
+**Branching with `branch()`:**
+
+```ts
+// branch() returns { entry, exit } for use in chain()
+chain(
+  node1,
+  branch(router, {
+    success: [processNode, saveNode],
+    error: [logErrorNode],
+  }),
+  node2
+);
+
+// Multiple branches in sequence
+chain(
+  branch(router1, { a: [pathA], b: [pathB] }),
+  branch(router2, { x: [pathX], y: [pathY] }),
+  finalNode
+);
+
+// Access entry/exit directly when needed
+const { entry, exit } = branch(router, { ... });
+exit.to(customEndNode);
+```
 
 **Flow configuration hooks:**
 

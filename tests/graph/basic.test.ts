@@ -1,5 +1,13 @@
 import { test, expect } from "bun:test";
-import { BaseNode, Node, Flow, node, chain, converge } from "@yae/graph";
+import {
+  BaseNode,
+  Node,
+  Flow,
+  node,
+  chain,
+  converge,
+  branch,
+} from "@yae/graph";
 
 type TestState = {
   value: number;
@@ -290,18 +298,18 @@ test("Branch to multiple nodes with different actions", async () => {
     },
   });
 
-  router.branch({
-    negative,
-    zero,
-    small,
-    large,
+  branch(router, {
+    negative: [negative],
+    zero: [zero],
+    small: [small],
+    large: [large],
   });
 
   await Flow.from(router).run(shared);
   expect(shared.executed).toEqual(["small"]);
 });
 
-test("Branch returns node reference for chaining", async () => {
+test("Branch exit can be chained to continuation", async () => {
   const shared: TestState = { value: 0, logs: [], executed: [] };
 
   const router = new BaseNode<TestState>({
@@ -326,10 +334,8 @@ test("Branch returns node reference for chaining", async () => {
     },
   });
 
-  const branches = router.branch({ path_a: pathA, path_b: pathB });
-
-  // Can access branches by name
-  branches.path_a.to(continuation);
+  // branch() returns { entry, exit } - exit can be chained
+  branch(router, { path_a: [pathA], path_b: [pathB] }).exit.to(continuation);
 
   await Flow.from(router).run(shared);
   expect(shared.executed).toEqual(["A", "continue"]);
@@ -459,7 +465,7 @@ test("chain returns first node", async () => {
 });
 
 test("chain throws on empty array", async () => {
-  expect(() => chain()).toThrow("chain() requires at least one node");
+  expect(() => chain()).toThrow("At least one node required");
 });
 
 // ============================================================================
@@ -666,7 +672,7 @@ test("Diamond pattern workflow", async () => {
     },
   });
 
-  start.branch({ high: pathA, low: pathB });
+  branch(start, { high: [pathA], low: [pathB] });
   const convergePoint = converge([pathA, pathB], end);
   convergePoint.name = "converge";
 
@@ -753,7 +759,7 @@ test("Circular reference protection via cloning", async () => {
     },
   });
 
-  node1.branch({ continue: node2, stop });
+  branch(node1, { continue: [node2], stop: [stop] });
   node2.to(node1); // Circular!
 
   await Flow.from(node1).run(shared);
@@ -1098,7 +1104,7 @@ test("Pipeline: Validate and route based on result", async () => {
     },
   });
 
-  validateOrder.branch({ approve: approveNode, reject: rejectNode });
+  branch(validateOrder, { approve: [approveNode], reject: [rejectNode] });
 
   await Flow.from(validateOrder).run(shared);
 
@@ -1173,7 +1179,7 @@ test("Pipeline: Multi-step data processing", async () => {
   });
 
   chain(parseInput, validateData);
-  validateData.branch({ save: saveData, error: errorHandler });
+  branch(validateData, { save: [saveData], error: [errorHandler] });
 
   await Flow.from(parseInput).run(shared);
 
@@ -1327,4 +1333,183 @@ test("Pipeline: chained transformations with data flowing through", async () => 
 
   expect(shared.final).toBe(">>> HELLO WORLD");
   expect(shared.steps).toEqual(["trimmed", "uppercased", "prefixed"]);
+});
+
+test("Pipeline: chained transformations with branching", async () => {
+  type PipelineState = {
+    raw: string;
+    steps: string[];
+    final: string;
+  };
+
+  const shared: PipelineState = {
+    raw: "  heLLo woRld  ",
+    steps: [],
+    final: "",
+  };
+
+  // Step 1: Trim whitespace
+  const trim = node<PipelineState>()({
+    name: "Trim",
+    prep: (s) => s.raw,
+    exec: (input) => input.trim(),
+    post: (s, _prep, result) => {
+      s.raw = result;
+      s.steps.push("trimmed");
+      return undefined;
+    },
+  });
+
+  const router = node<PipelineState>()({
+    name: "router",
+    post: (s, _prep, _result) => {
+      return "lowercase";
+    },
+  });
+
+  // Step A2: Uppercase
+  const uppercase = node<PipelineState>()({
+    name: "Uppercase",
+    prep: (s) => s.raw,
+    exec: (input) => input.toUpperCase(),
+    post: (s, _prep, result) => {
+      s.raw = result;
+      s.steps.push("uppercased");
+      return undefined;
+    },
+  });
+
+  // Step B2: Uppercase
+  const lowercase = node<PipelineState>()({
+    name: "Lowercase",
+    prep: (s) => s.raw,
+    exec: (input) => input.toLowerCase(),
+    post: (s, _prep, result) => {
+      s.raw = result;
+      s.steps.push("lowercased");
+      return undefined;
+    },
+  });
+
+  // Step 3: Add prefix
+  const prefix = node<PipelineState>()({
+    name: "Prefix",
+    prep: (s) => s.raw,
+    exec: (input) => `>>> ${input}`,
+    post: (s, _prep, result) => {
+      s.final = result;
+      s.steps.push("prefixed");
+      return undefined;
+    },
+  });
+
+  const workflow = chain(
+    trim,
+    branch(router, { lowercase: [lowercase], uppercase: [uppercase] }),
+    prefix,
+  );
+
+  await Flow.from(workflow).run(shared);
+
+  expect(shared.final).toBe(">>> hello world");
+  expect(shared.steps).toEqual(["trimmed", "lowercased", "prefixed"]);
+});
+
+test("Pipeline: chained transformations with branching", async () => {
+  type PipelineState = {
+    raw: string;
+    steps: string[];
+    final: string;
+  };
+
+  const shared: PipelineState = {
+    raw: "  heLLo woRld  ",
+    steps: [],
+    final: "",
+  };
+
+  // Step 1: Trim whitespace
+  const trim = node<PipelineState>()({
+    name: "Trim",
+    prep: (s) => s.raw,
+    exec: (input) => input.trim(),
+    post: (s, _prep, result) => {
+      s.raw = result;
+      s.steps.push("trimmed");
+      return undefined;
+    },
+  });
+
+  const router = node<PipelineState>()({
+    name: "router",
+    post: (s, _prep, _result) => {
+      return "lowercase";
+    },
+  });
+
+  // Step A2: Uppercase
+  const uppercase = node<PipelineState>()({
+    name: "Uppercase",
+    prep: (s) => s.raw,
+    exec: (input) => input.toUpperCase(),
+    post: (s, _prep, result) => {
+      s.raw = result;
+      s.steps.push("uppercased");
+      return undefined;
+    },
+  });
+
+  // Step B2: Uppercase
+  const lowercase = node<PipelineState>()({
+    name: "Lowercase",
+    prep: (s) => s.raw,
+    exec: (input) => input.toLowerCase(),
+    post: (s, _prep, result) => {
+      s.raw = result;
+      s.steps.push("lowercased");
+      return undefined;
+    },
+  });
+
+  // Step C2: Chaos
+  const chaoscase = node<PipelineState>()({
+    name: "Chaoscase",
+    prep: (s) => 5,
+    exec: (input) => input * 5,
+    post: (s, _prep, result) => {
+      s.steps.push(`entropied_${result}`);
+      return undefined;
+    },
+  });
+
+  // Step 3: Add prefix
+  const prefix = node<PipelineState>()({
+    name: "Prefix",
+    prep: (s) => s.raw,
+    exec: (input) => `>>> ${input}`,
+    post: (s, _prep, result) => {
+      s.final = result;
+      s.steps.push("prefixed");
+      return undefined;
+    },
+  });
+
+  const workflow = chain(
+    trim,
+    branch(router, {
+      lowercase: [lowercase, chaoscase],
+      uppercase: [uppercase],
+    }),
+    prefix,
+  );
+
+  await Flow.from(workflow).run(shared);
+
+  expect(shared.final).toBe(">>> hello world");
+  expect(shared.steps).toEqual([
+    "trimmed",
+    "lowercased",
+    "entropied_25",
+    "prefixed",
+  ]);
 });
