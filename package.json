@@ -10,10 +10,8 @@
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "3.7.4",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.52.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.1",

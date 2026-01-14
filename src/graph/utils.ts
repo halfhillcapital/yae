@@ -6,13 +6,14 @@ import {
   type ParallelNodeConfig,
 } from "./node";
 import { Flow, type FlowConfig } from "./flow";
+import type { Action } from "./types";
 
 // Node Utilities
 
 /**
  * A curried factory to enable partial type inference.
- * node<State>()(...) and parallel<State>()(...) allows 
- * you to define the State once and have P and E inferred 
+ * node<State>()(...) and parallel<State>()(...) allows
+ * you to define the State once and have P and E inferred
  * automatically from your logic.
  */
 const node = <S>() => {
@@ -27,7 +28,10 @@ const parallel = <S>() => {
   };
 };
 
-function chain<S>(...nodes: GraphNode<S>[]): GraphNode<S> {
+function ouroboros<S>(...nodes: GraphNode<S>[]): {
+  first: GraphNode<S>;
+  last: GraphNode<S>;
+} {
   if (nodes.length === 0) {
     throw new Error("chain() requires at least one node");
   }
@@ -43,8 +47,17 @@ function chain<S>(...nodes: GraphNode<S>[]): GraphNode<S> {
   }
 
   const first = nodes[0];
-  if (!first) throw new Error("Unexpected undefined first node in chain");
+  const last = nodes[nodes.length - 1];
 
+  if (!first || !last) {
+    throw new Error("Unexpected undefined first or last node");
+  }
+
+  return { first, last };
+}
+
+function chain<S>(...nodes: GraphNode<S>[]): GraphNode<S> {
+  const { first } = ouroboros<S>(...nodes);
   return first;
 }
 
@@ -62,6 +75,16 @@ function converge<S>(
   return target;
 }
 
+function branch<K extends string, T extends GraphNode<S>, S>(start: GraphNode<S>, routes: Record<K, T[]>, end: GraphNode<S>): GraphNode<S> {
+  for (const [action, nodes] of Object.entries(routes) as [Action, T[]][]) {
+    const { first, last } = ouroboros<S>(...nodes);
+    start.when(action, first);
+    last.to(end);
+  }
+
+  return end;
+}
+
 // Flow Utilities
 
 function sequential<S>(nodes: GraphNode<S>[], config?: FlowConfig<S>): Flow<S> {
@@ -71,4 +94,4 @@ function sequential<S>(nodes: GraphNode<S>[], config?: FlowConfig<S>): Flow<S> {
   return Flow.from(chain(...nodes), config);
 }
 
-export { node, parallel, chain, converge, sequential };
+export { node, parallel, chain, branch, converge, sequential };
