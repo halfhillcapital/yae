@@ -37,7 +37,7 @@ test("branch creates routing from start to multiple paths converging at auto-cre
     },
   });
 
-  const { entry, exit } = branch(router, { high: [highPath], low: [lowPath] });
+  const { entry } = branch(router, { high: [highPath], low: [lowPath] });
 
   expect(entry).toBe(router);
   await Flow.from(entry).run(shared);

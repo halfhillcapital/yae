@@ -16,7 +16,7 @@ test("Node with onError handler catches and handles errors", async () => {
 
   const riskyNode = new Node<SharedCalc>({
     name: "Risky operation",
-    prep: async (s) => {
+    prep: async (_s) => {
       throw new Error("Something went wrong!");
     },
     onError: (error, shared) => {
@@ -48,7 +48,7 @@ test("Node without onError handler throws error", async () => {
 
   const riskyNode = new Node<SharedCalc>({
     name: "Risky operation",
-    prep: async (s) => {
+    prep: async (_s) => {
       throw new Error("Unhandled error!");
     },
   });
@@ -127,7 +127,7 @@ test("onError can route to different branches based on error type", async () => 
         throw new Error("VALIDATION_ERROR");
       }
     },
-    onError: (error, shared) => {
+    onError: (error, _shared) => {
       if (error.message.includes("VALIDATION")) {
         return "validation_error";
       }
@@ -330,7 +330,7 @@ test("Flow hooks are called in correct order", async () => {
     beforeStart: (s) => {
       s.logs?.push("Flow started");
     },
-    onNodeExecute: (node, action) => {
+    onNodeExecute: (node, _action) => {
       shared.logs?.push(`Executed: ${node.name}`);
     },
     onError: (error, node, shared) => {
@@ -472,7 +472,7 @@ test("Async error handling", async () => {
 
   const node = new Node<SharedCalc>({
     name: "Async node",
-    prep: async (s) => {
+    prep: async (_s) => {
       await new Promise((resolve) => setTimeout(resolve, 10));
       throw new Error("Async error");
     },
@@ -499,7 +499,7 @@ test("Error message is preserved", async () => {
     prep: () => {
       throw new Error("Specific error message");
     },
-    onError: (error, shared) => {
+    onError: (error, _shared) => {
       capturedError = error;
       return undefined;
     },
@@ -523,7 +523,7 @@ test("Error in onError handler is propagated", async () => {
     prep: () => {
       throw new Error("First error");
     },
-    onError: (error, shared) => {
+    onError: (_error, _shared) => {
       // Error handler itself throws
       throw new Error("Error in error handler");
     },

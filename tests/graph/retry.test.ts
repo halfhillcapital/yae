@@ -462,7 +462,7 @@ test("Error in exec is retried", async () => {
 
   const node = new Node<SharedCalc, { value: number }, { value: number }>({
     name: "Exec fails",
-    prep: (s) => {
+    prep: (_s) => {
       return { value: 42 };
     },
     exec: (prepResult) => {
@@ -496,14 +496,14 @@ test("onRetry hook can be async", async () => {
         throw new Error("Retry");
       }
     },
-    post: (s, p, e) => {
+    post: (s, _p, _e) => {
       s.result = 100;
       return undefined;
     },
     retry: {
       maxAttempts: 5,
       delay: 10,
-      onRetry: async (attempt, error) => {
+      onRetry: async (attempt, _error) => {
         await new Promise((resolve) => setTimeout(resolve, 5));
         shared.logs?.push(`Async retry ${attempt}`);
       },
@@ -570,7 +570,7 @@ test("Cloned retry node maintains retry config", async () => {
       calls += 1;
       if (calls < 2) throw new Error("Retry");
     },
-    post: (s, p, e) => {
+    post: (s, _p, _e) => {
       s.result = 100;
       return undefined;
     },
@@ -605,7 +605,7 @@ test("Flow onError sees retry attempts", async () => {
         throw new Error(`Attempt ${calls}`);
       }
     },
-    post: (s, p, e) => {
+    post: (s, _p, _e) => {
       s.result = 100;
       return undefined;
     },
@@ -616,7 +616,7 @@ test("Flow onError sees retry attempts", async () => {
   });
 
   const flow = Flow.from(node, {
-    onNodeExecute: (node, action) => {
+    onNodeExecute: (node, _action) => {
       shared.logs?.push(`Node executed: ${node.name}`);
     },
     onError: (error, node, shared) => {

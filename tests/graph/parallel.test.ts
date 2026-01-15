@@ -886,7 +886,7 @@ test("ParallelNode with undefined prep result", async () => {
     callCount: 0,
   };
 
-  // @ts-expect-error
+  // @ts-expect-error Because prep is undefined for testing
   const node = new ParallelNode<TestState, number, number>({
     name: "Undefined prep",
     exec: (item) => item * 2,
@@ -933,9 +933,10 @@ test("ParallelNode throws on non-array prep result", async () => {
     callCount: 0,
   };
 
+  // eslint-disable-next-line
   const node = new ParallelNode<TestState, any, number>({
     name: "Non-array",
-    prep: () => "not an array" as any,
+    prep: () => "not an array" as any, // eslint-disable-line
     exec: (item) => item * 2,
     post: (s, _prep, results) => {
       s.results = results as number[];

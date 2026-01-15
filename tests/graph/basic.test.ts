@@ -5,7 +5,7 @@ type TestState = {
   value: number;
   logs: string[];
   executed: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 };
 
 // ============================================================================
@@ -41,7 +41,7 @@ test("BaseNode exec only", async () => {
   const shared: TestState = { value: 0, logs: [], executed: [] };
 
   const node = new BaseNode<TestState, void, number>({
-    exec: (prepResult) => {
+    exec: (_prepResult) => {
       shared.executed.push("exec");
       return 99;
     },
@@ -77,7 +77,7 @@ test("BaseNode prep -> exec -> post chain", async () => {
       s.executed.push("prep");
       return { data: 10 };
     },
-    exec: (prepResult: any) => {
+    exec: (prepResult: { data: number }) => {
       shared.executed.push("exec");
       return prepResult.data * 2;
     },
@@ -305,7 +305,7 @@ test("Branch exit can be chained to continuation", async () => {
   const shared: TestState = { value: 0, logs: [], executed: [] };
 
   const router = new BaseNode<TestState>({
-    post: (s) => "path_a",
+    post: (_s) => "path_a",
   });
 
   const pathA = new BaseNode<TestState>({
@@ -398,7 +398,7 @@ test("Overriding successor shows warning", async () => {
 
   // Capture console.warn
   const originalWarn = console.warn;
-  console.warn = (...args: any[]) => {
+  console.warn = (...args: unknown[]) => {
     warnings.push(args.join(" "));
   };
 
@@ -533,7 +533,7 @@ test("Flow onNodeExecute hook", async () => {
   );
 
   await Flow.from(workflow, {
-    onNodeExecute: (node, action) => {
+    onNodeExecute: (node, _action) => {
       if (node.name) nodeNames.push(node.name);
     },
   }).run(shared);
@@ -1353,7 +1353,7 @@ test("Pipeline: chained transformations with branching", async () => {
 
   const router = node<PipelineState>()({
     name: "router",
-    post: (s, _prep, _result) => {
+    post: (_s, _prep, _result) => {
       return "lowercase";
     },
   });
@@ -1433,7 +1433,7 @@ test("Pipeline: chained transformations with branching", async () => {
 
   const router = node<PipelineState>()({
     name: "router",
-    post: (s, _prep, _result) => {
+    post: (_s, _prep, _result) => {
       return "lowercase";
     },
   });
@@ -1465,7 +1465,7 @@ test("Pipeline: chained transformations with branching", async () => {
   // Step C2: Chaos
   const chaoscase = node<PipelineState>()({
     name: "Chaoscase",
-    prep: (s) => 5,
+    prep: (_s) => 5,
     exec: (input) => input * 5,
     post: (s, _prep, result) => {
       s.steps.push(`entropied_${result}`);
