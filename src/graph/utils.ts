@@ -6,7 +6,13 @@ import {
   type ParallelNodeConfig,
 } from "./node";
 import { Flow, type FlowConfig } from "./flow";
-import { isBranch, type GraphNode, type Branch, type Chainable, type Action } from "./types";
+import {
+  isBranch,
+  type GraphNode,
+  type Branch,
+  type Chainable,
+  type Action,
+} from "./types";
 
 // Node Utilities
 

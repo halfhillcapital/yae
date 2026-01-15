@@ -1,12 +1,5 @@
 import { test, expect } from "bun:test";
-import {
-  BaseNode,
-  Node,
-  Flow,
-  node,
-  chain,
-  branch,
-} from "@yae/graph";
+import { BaseNode, Node, Flow, node, chain, branch } from "@yae/graph";
 
 type TestState = {
   value: number;

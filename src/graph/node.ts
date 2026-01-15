@@ -1,4 +1,10 @@
-import { isBranch, type GraphNode, type Chainable, type Action, type NextAction } from "./types";
+import {
+  isBranch,
+  type GraphNode,
+  type Chainable,
+  type Action,
+  type NextAction,
+} from "./types";
 
 // ============================================================================
 // BaseNode
