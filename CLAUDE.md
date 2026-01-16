@@ -127,6 +127,10 @@ exit.to(customEndNode);
 ```ts
 const yae = await Yae.initialize();
 
+// Admin token (generated fresh each startup)
+yae.getAdminToken();
+yae.isAdminToken(token);
+
 // User agent management
 await yae.createUserAgent(userId);
 yae.getUserAgent(userId);
@@ -166,10 +170,10 @@ ctx.messages.save("user", "hello");
 ctx.files.readFile("/path");
 ```
 
-**Schema:**
+**Schemas** (`src/db/schemas/`):
 
-- `memory`: Labeled blocks (label unique, description, content, updatedAt)
-- `messages`: Conversation history (role, content, createdAt with index)
+- `agent-schema.ts`: `memory` (label, description, content), `messages` (role, content, createdAt)
+- `admin-schema.ts`: `users` (id, name, apiKey, role, createdAt)
 
 **Repositories** (`src/db/repositories/`):
 
@@ -183,11 +187,27 @@ ctx.files.readFile("/path");
 - `bun run db:generate:admin` - Generate admin schema migrations (users)
 - `bun run db:studio` - Open Drizzle Studio GUI
 
-### API Layer
+### API Layer (`src/api/`)
 
-- Elysia routes in `src/api/routes.ts`
-- Bearer token auth via `API_KEY` env var
-- `/health` (public), `/chat` (authenticated)
+Two-tier bearer token authentication:
+
+1. **Admin token** - Generated fresh on each startup, printed to console
+2. **User tokens** - Stored in DB as `apiKey`, returned when registering users
+
+**Endpoints:**
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | None | Health check |
+| POST | `/admin/users` | Admin | Register user (returns apiKey) |
+| GET | `/admin/users` | Admin | List all users |
+| DELETE | `/admin/users/:id` | Admin | Delete user |
+| POST | `/chat` | User | Chat with user's agent |
+
+**Middleware** (`src/api/middleware.ts`):
+
+- `adminAuth` - Validates admin token via `Yae.isAdminToken()`
+- `userAuth` - Looks up user by apiKey, creates/gets their agent
 
 ## Path Aliases
 

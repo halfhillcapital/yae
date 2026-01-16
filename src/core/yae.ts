@@ -13,12 +13,23 @@ export type HealthStatus = {
 export class Yae {
   private static instance: Yae | null = null;
   private readonly startTime = Date.now();
+  private readonly adminToken: string;
   private userAgents = new Map<string, YaeAgent>();
 
   private constructor(
     private readonly ctx: AgentContext,
     private readonly admin: AdminContext,
-  ) {}
+  ) {
+    this.adminToken = `yae_admin_${crypto.randomUUID().replace(/-/g, "")}`;
+  }
+
+  getAdminToken(): string {
+    return this.adminToken;
+  }
+
+  isAdminToken(token: string): boolean {
+    return token === this.adminToken;
+  }
 
   static async initialize(): Promise<Yae> {
     if (Yae.instance) return Yae.instance;

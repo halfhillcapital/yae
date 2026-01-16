@@ -5,10 +5,6 @@ import { Yae } from "./core";
 // Initialize Yae (the server)
 const yae = await Yae.initialize();
 
-// Create test agents
-await yae.createUserAgent("dog");
-await yae.createUserAgent("cat");
-
 const PORT = process.env.PORT || 3000;
 new Elysia().use(routes).listen(PORT);
 
@@ -18,7 +14,7 @@ console.log(`
 ╚════════════════════════════════════════╝
 
 🚀 Server running on: http://localhost:${PORT}
-🔐 API Key: ${process.env.API_KEY?.slice(0, 20)}...
+🔑 Admin Token: ${yae.getAdminToken()}
 📝 Health check: http://localhost:${PORT}/health
 
 Press Ctrl+C to gracefully shutdown
