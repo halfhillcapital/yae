@@ -1,8 +1,24 @@
 import { Elysia, t } from "elysia";
+import { rateLimit } from "elysia-rate-limit";
 import { Yae } from "@yae/core";
 import { adminAuth, userAuth } from "./middleware";
 
 export const routes = new Elysia()
+  // Rate limiting: 10 requests per 60 seconds per IP
+  .use(
+    rateLimit({
+      max: 10,
+      duration: 60_000,
+      errorResponse: new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+    }),
+  )
+
   // Health check endpoint (no auth required)
   .get("/health", () => {
     const yae = Yae.getInstance();

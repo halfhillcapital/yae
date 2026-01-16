@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { AgentContext, AdminContext, type User } from "@yae/db";
 import { YaeAgent } from "@yae/agent";
 
@@ -28,7 +29,13 @@ export class Yae {
   }
 
   isAdminToken(token: string): boolean {
-    return token === this.adminToken;
+    try {
+      const a = Buffer.from(token);
+      const b = Buffer.from(this.adminToken);
+      return a.length === b.length && timingSafeEqual(a, b);
+    } catch {
+      return false;
+    }
   }
 
   static async initialize(): Promise<Yae> {

@@ -206,8 +206,13 @@ Two-tier bearer token authentication:
 
 **Middleware** (`src/api/middleware.ts`):
 
-- `adminAuth` - Validates admin token via `Yae.isAdminToken()`
+- `adminAuth` - Validates admin token via `Yae.isAdminToken()` (timing-safe comparison)
 - `userAuth` - Looks up user by apiKey, creates/gets their agent
+
+**Security:**
+
+- Rate limiting: 10 requests per 60 seconds per IP (via `elysia-rate-limit`)
+- Timing-safe admin token comparison (prevents timing attacks)
 
 ## Path Aliases
 
