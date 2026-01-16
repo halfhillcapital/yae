@@ -10,3 +10,10 @@ export interface Message {
 // Events
 
 export type EventType = "action" | "webhook";
+
+// Database
+
+export interface AgentDB {
+  db: string;
+  fs: string;
+}

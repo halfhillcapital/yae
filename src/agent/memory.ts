@@ -2,29 +2,18 @@ import { eq } from "drizzle-orm";
 import { type AgentDB } from "@yae/db/index.ts";
 import { memoryTable } from "@yae/db/schema.ts";
 
-export interface MemoryBlock {
+type MemoryBlock = {
   label: string;
   description: string;
   content: string;
   updatedAt: number;
-}
+};
 
-export class AgentMemory {
+class AgentMemory {
   private blocks: Map<string, MemoryBlock> = new Map();
 
-  constructor(private db: AgentDB) {}
-
-  async load(): Promise<void> {
-    const rows = await this.db.select().from(memoryTable);
-    this.blocks.clear();
-    for (const row of rows) {
-      this.blocks.set(row.label, {
-        label: row.label,
-        description: row.description,
-        content: row.content,
-        updatedAt: row.updatedAt,
-      });
-    }
+  constructor(private readonly db: AgentDB) {
+    this.load();
   }
 
   has(label: string): boolean {
@@ -46,13 +35,15 @@ export class AgentMemory {
   ): Promise<void> {
     if (this.blocks.has(label)) {
       // Update existing
-      await this.db
+      await this.db.drizzle
         .update(memoryTable)
         .set({ description, content })
         .where(eq(memoryTable.label, label));
     } else {
       // Insert new
-      await this.db.insert(memoryTable).values({ label, description, content });
+      await this.db.drizzle
+        .insert(memoryTable)
+        .values({ label, description, content });
     }
 
     this.blocks.set(label, {
@@ -68,7 +59,9 @@ export class AgentMemory {
       return false;
     }
 
-    await this.db.delete(memoryTable).where(eq(memoryTable.label, label));
+    await this.db.drizzle
+      .delete(memoryTable)
+      .where(eq(memoryTable.label, label));
     this.blocks.delete(label);
     return true;
   }
@@ -88,4 +81,19 @@ export class AgentMemory {
     xml += "</Memory>";
     return xml;
   }
+
+  private async load() {
+    const rows = await this.db.drizzle.select().from(memoryTable);
+    this.blocks.clear();
+    for (const row of rows) {
+      this.blocks.set(row.label, {
+        label: row.label,
+        description: row.description,
+        content: row.content,
+        updatedAt: row.updatedAt,
+      });
+    }
+  }
 }
+
+export { AgentMemory };

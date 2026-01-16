@@ -1,5 +1,51 @@
 import Elysia from "elysia";
 import { routes } from "./api/routes";
+import { YaeAgent } from "./agent";
+import { getAgentDb } from "./db";
+
+// const INACTIVE_TIMEOUT_MS = 60 * 60 * 1000;
+// const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+// function cleanupInactiveAgents() {
+//   const now = Date.now();
+//   let cleaned = 0;
+
+//   for (const [id, agent] of userAgents) {
+//     const inactive = now - agent.lastActiveAt;
+//     if (inactive > INACTIVE_TIMEOUT_MS) {
+//       agent.stop();
+//       userAgents.delete(id);
+//       cleaned++;
+//       console.log(
+//         `[AgentService] Cleaned up inactive agent ${id} (inactive for ${Math.round(inactive / 60000)}min)`,
+//       );
+//     }
+//   }
+
+//   if (cleaned > 0) {
+//     console.log(
+//       `[AgentService] Cleanup complete: removed ${cleaned} agents, ${userAgents.size} active`,
+//     );
+//   }
+// }
+
+// setInterval(cleanupInactiveAgents, CLEANUP_INTERVAL_MS);
+
+const userAgents = new Map<string, YaeAgent>();
+
+async function createAgent(userId: string): Promise<YaeAgent> {
+  const exists = userAgents.get(userId);
+  if (exists) return exists;
+
+  const uuid = crypto.randomUUID();
+  const db = await getAgentDb(uuid);
+  const agent = new YaeAgent(uuid, userId, db);
+  userAgents.set(userId, agent);
+  return agent;
+}
+
+const user1 = await createAgent("dog");
+const user2 = await createAgent("cat");
 
 const PORT = process.env.PORT || 3000;
 new Elysia().use(routes).listen(PORT);
