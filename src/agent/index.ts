@@ -1,22 +1,26 @@
-import { AgentMemory } from "./memory.ts";
-import { AgentHistory } from "./history";
-import { type AgentDB } from "@yae/db/index.ts";
+import { type AgentContext } from "@yae/db/index.ts";
 
 const MAX_QUEUE_SIZE = 100;
 
 class YaeAgent {
-  private memory: AgentMemory;
-  private history: AgentHistory;
-
   private workers: WorkerAgent[] = [];
 
   constructor(
     public readonly id: string,
     public readonly userId: string,
-    private readonly db: AgentDB,
-  ) {
-    this.memory = new AgentMemory(db);
-    this.history = new AgentHistory(db);
+    private readonly ctx: AgentContext,
+  ) {}
+
+  get memory() {
+    return this.ctx.memory;
+  }
+
+  get messages() {
+    return this.ctx.messages;
+  }
+
+  get files() {
+    return this.ctx.files;
   }
 }
 

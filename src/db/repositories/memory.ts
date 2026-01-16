@@ -1,18 +1,18 @@
 import { eq } from "drizzle-orm";
-import { type AgentDB } from "@yae/db/index.ts";
-import { memoryTable } from "@yae/db/schema.ts";
+import type { drizzle } from "drizzle-orm/libsql";
+import { memoryTable } from "../schema.ts";
 
-type MemoryBlock = {
+export type MemoryBlock = {
   label: string;
   description: string;
   content: string;
   updatedAt: number;
 };
 
-class AgentMemory {
+export class MemoryRepository {
   private blocks: Map<string, MemoryBlock> = new Map();
 
-  constructor(private readonly db: AgentDB) {
+  constructor(private readonly db: ReturnType<typeof drizzle>) {
     this.load();
   }
 
@@ -35,13 +35,13 @@ class AgentMemory {
   ): Promise<void> {
     if (this.blocks.has(label)) {
       // Update existing
-      await this.db.drizzle
+      await this.db
         .update(memoryTable)
         .set({ description, content })
         .where(eq(memoryTable.label, label));
     } else {
       // Insert new
-      await this.db.drizzle
+      await this.db
         .insert(memoryTable)
         .values({ label, description, content });
     }
@@ -59,7 +59,7 @@ class AgentMemory {
       return false;
     }
 
-    await this.db.drizzle
+    await this.db
       .delete(memoryTable)
       .where(eq(memoryTable.label, label));
     this.blocks.delete(label);
@@ -83,7 +83,7 @@ class AgentMemory {
   }
 
   private async load() {
-    const rows = await this.db.drizzle.select().from(memoryTable);
+    const rows = await this.db.select().from(memoryTable);
     this.blocks.clear();
     for (const row of rows) {
       this.blocks.set(row.label, {
@@ -95,5 +95,3 @@ class AgentMemory {
     }
   }
 }
-
-export { AgentMemory };

@@ -1,7 +1,7 @@
 import Elysia from "elysia";
 import { routes } from "./api/routes";
 import { YaeAgent } from "./agent";
-import { getAgentDb } from "./db";
+import { AgentContext } from "./db";
 
 // const INACTIVE_TIMEOUT_MS = 60 * 60 * 1000;
 // const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
@@ -38,8 +38,8 @@ async function createAgent(userId: string): Promise<YaeAgent> {
   if (exists) return exists;
 
   const uuid = crypto.randomUUID();
-  const db = await getAgentDb(uuid);
-  const agent = new YaeAgent(uuid, userId, db);
+  const ctx = await AgentContext.create(uuid);
+  const agent = new YaeAgent(uuid, userId, ctx);
   userAgents.set(userId, agent);
   return agent;
 }

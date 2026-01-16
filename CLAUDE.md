@@ -120,24 +120,46 @@ exit.to(customEndNode);
 - `onError(error, node, shared)` - Called when a node throws
 - `maxIterations` - Guard against infinite loops (default: 1000)
 
-### Agent System
+### Agent System (`src/agent/`)
 
-- **YaeAgent** (`src/core/agents.ts`): Long-running agent with task queue, event-driven loop (not polling), conversation history, and memory
-- **AgentMemory** (`src/core/memory.ts`): Labeled memory blocks persisted to SQLite
-- **AgentService** (`src/db/services.ts`): Singleton manager with automatic cleanup of inactive agents (1 hour timeout)
+- **YaeAgent** (`src/agent/index.ts`): Container class with `memory`, `messages`, and `files` repositories
+- **WorkerAgent** (`src/agent/index.ts`): Task execution worker with event-driven loop (promise-based, not polling), queue management (max 100 tasks), and activity tracking
 
-### Database
+### Database (`src/db/`)
 
-Each agent gets its own SQLite database at `./data/agents/agent_{id}.db`. Schema:
+Each agent gets its own SQLite database at `./data/agents/agent_{id}.db` plus an AgentFS instance for file operations.
 
-- `memory`: Labeled key-value blocks for persistent agent memory
-- `messages`: Conversation history with role/content
+**AgentContext** (`src/db/context.ts`): Single entry point for all database access. Creates DB connection, runs migrations, and initializes repositories.
+
+```ts
+const ctx = await AgentContext.create(agentId);
+ctx.memory.get("label");
+ctx.messages.save("user", "hello");
+ctx.files.readFile("/path");
+```
+
+**Schema:**
+
+- `memory`: Labeled blocks (label unique, description, content, updatedAt)
+- `messages`: Conversation history (role, content, createdAt with index)
+
+**Repositories** (`src/db/repositories/`):
+
+- **MemoryRepository**: Labeled memory blocks with in-memory cache, `has()`, `get()`, `getAll()`, `set()`, `delete()`, `toXML()`
+- **MessagesRepository**: Conversation history (max 50), `getAll()`, `save()`
+- **FileRepository**: Wraps AgentFS filesystem - `readFile()`, `writeFile()`, `readdir()`, `mkdir()`, `rm()`, `exists()`, `stat()`, etc.
+
+**CLI commands:**
+
+- `bun run db:generate` - Generate migrations
+- `bun run db:migrate` - Run migrations
+- `bun run db:studio` - Open Drizzle Studio GUI
 
 ### API Layer
 
 - Elysia routes in `src/api/routes.ts`
 - Bearer token auth via `API_KEY` env var
-- `/health` (public), `/message` (authenticated)
+- `/health` (public), `/chat` (authenticated)
 
 ## Path Aliases
 
