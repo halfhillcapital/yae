@@ -9,9 +9,8 @@
     "format": "prettier . --write",
     "watch": "bun --watch src/index.ts",
     "test": "bun test",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
+    "db:generate:agent": "drizzle-kit generate --config drizzle-agent.config.ts",
+    "db:generate:admin": "drizzle-kit generate --config drizzle-admin.config.ts",
     "db:studio": "drizzle-kit studio"
   },
   "engines": {

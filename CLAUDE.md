@@ -120,10 +120,38 @@ exit.to(customEndNode);
 - `onError(error, node, shared)` - Called when a node throws
 - `maxIterations` - Guard against infinite loops (default: 1000)
 
-### Agent System (`src/agent/`)
+### Yae - The Server (`src/core/`)
+
+**Yae** is the singleton that IS the server. She manages user agents, user authentication, and server lifecycle.
+
+```ts
+const yae = await Yae.initialize();
+
+// User agent management
+await yae.createUserAgent(userId);
+yae.getUserAgent(userId);
+yae.listUserAgents();
+
+// User management (persisted to DB)
+await yae.registerUser("Alice", "admin");
+await yae.getUserByApiKey(apiKey);
+
+// Server control
+yae.getHealth();
+await yae.shutdown();
+
+// Yae's own persistence
+yae.memory.get("label");
+```
+
+**Database:** `./data/yae.db` (memory + messages + users tables)
+
+### User Agents (`src/agent/`)
 
 - **YaeAgent** (`src/agent/index.ts`): Container class with `memory`, `messages`, and `files` repositories
 - **WorkerAgent** (`src/agent/index.ts`): Task execution worker with event-driven loop (promise-based, not polling), queue management (max 100 tasks), and activity tracking
+
+**Database:** `./data/agents/agent_{id}.db` (memory + messages tables)
 
 ### Database (`src/db/`)
 
@@ -151,8 +179,8 @@ ctx.files.readFile("/path");
 
 **CLI commands:**
 
-- `bun run db:generate` - Generate migrations
-- `bun run db:migrate` - Run migrations
+- `bun run db:generate:agent` - Generate agent schema migrations (memory, messages)
+- `bun run db:generate:admin` - Generate admin schema migrations (users)
 - `bun run db:studio` - Open Drizzle Studio GUI
 
 ### API Layer

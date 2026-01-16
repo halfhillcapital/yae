@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/libsql";
-import { memoryTable } from "../schema.ts";
+import { memoryTable } from "../schemas/agent-schema.ts";
 
 export type MemoryBlock = {
   label: string;

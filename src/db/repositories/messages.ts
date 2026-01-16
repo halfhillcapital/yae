@@ -1,6 +1,6 @@
 import { asc } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/libsql";
-import { messagesTable } from "../schema.ts";
+import { messagesTable } from "../schemas/agent-schema.ts";
 import type { Message } from "@yae/types";
 
 export const MAX_CONVERSATION_HISTORY = 50;
