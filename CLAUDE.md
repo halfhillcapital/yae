@@ -150,10 +150,10 @@ yae.memory.get("label");
 
 **Database:** `./data/yae.db` (memory + messages + users tables)
 
-### User Agents (`src/agent/`)
+### Agents (`src/core/`)
 
-- **YaeAgent** (`src/agent/index.ts`): Container class with `memory`, `messages`, and `files` repositories
-- **WorkerAgent** (`src/agent/index.ts`): Task execution worker with event-driven loop (promise-based, not polling), queue management (max 100 tasks), and activity tracking
+- **YaeAgent** (`src/core/agents.ts`): Container class with `memory`, `messages`, and `files` repositories
+- **WorkerAgent** (`src/core/agents.ts`): Task execution worker with event-driven loop (promise-based, not polling), queue management (max 100 tasks), and activity tracking
 
 **Database:** `./data/agents/agent_{id}.db` (memory + messages tables)
 
