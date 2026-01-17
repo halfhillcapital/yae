@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
 import { Yae } from "@yae/core";
 import { adminAuth, userAuth } from "./middleware";
+import { b, type Message } from "baml_client";
 
 export const routes = new Elysia()
   // Rate limiting: 10 requests per 60 seconds per IP
@@ -61,17 +62,32 @@ export const routes = new Elysia()
     "/chat",
     async ({ body, user, agent }) => {
       // user and agent are injected by userAuth middleware
+      if (!user || !agent) {
+        return {
+          success: false,
+          message: "Blocked! Invalid user or agent.",
+        };
+      }
+      const userMessage: Message = { role: "user", content: body.message };
+      await agent.messages.save(userMessage);
+
+      const memories = agent.memory.getAll();
+      const files = await agent.files.getFileTree("/");
+      const conversation = agent.messages.getAll();
+
+      const response = await b.ChatWithAgentContext(memories, files, conversation);
+
+      const agentMessage: Message = { role: "assistant", content: response };
+      await agent.messages.save(agentMessage);
+
       return {
         success: true,
-        userId: user!.id,
-        agentId: agent!.id,
-        message: body.message,
+        message: response
       };
     },
     {
       body: t.Object({
-        message: t.String(),
-        instructions: t.Optional(t.String()),
+        message: t.String()
       }),
     },
   );

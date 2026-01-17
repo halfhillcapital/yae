@@ -66,22 +66,6 @@ export class MemoryRepository {
     return true;
   }
 
-  toXML(): string {
-    if (this.blocks.size === 0) {
-      return "";
-    }
-
-    let xml = "<Memory>\n";
-    for (const block of this.blocks.values()) {
-      xml += `  <Block label="${block.label}">\n`;
-      xml += `    <Description>${block.description}</Description>\n`;
-      xml += `    <Content>${block.content}</Content>\n`;
-      xml += `  </Block>\n`;
-    }
-    xml += "</Memory>";
-    return xml;
-  }
-
   private async load() {
     const rows = await this.db.select().from(memoryTable);
     this.blocks.clear();

@@ -47,3 +47,6 @@ process.once("unhandledRejection", (reason, promise) => {
   console.error("[Fatal] Unhandled rejection at:", promise, "reason:", reason);
   shutdown("UNHANDLED_REJECTION").catch(() => process.exit(1));
 });
+
+const testUser = await yae.registerUser("Sascha");
+console.log("[Test] Registered test user:", testUser);
