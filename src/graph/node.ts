@@ -10,7 +10,7 @@ import {
 // BaseNode
 // ============================================================================
 
-type BaseNodeConfig<S, P, E> = {
+export type BaseNodeConfig<S, P, E> = {
   name?: string;
   /** Read from shared state, prepare inputs for exec. */
   prep?: (shared: S) => Promise<P> | P;
@@ -40,7 +40,7 @@ type BaseNodeConfig<S, P, E> = {
 };
 
 // Base implementation - minimal core functionality
-class BaseNode<S, P = void, E = void> implements GraphNode<S> {
+export class BaseNode<S, P = void, E = void> implements GraphNode<S> {
   public name?: string;
   protected _prep?: BaseNodeConfig<S, P, E>["prep"];
   protected _exec?: BaseNodeConfig<S, P, E>["exec"];
@@ -164,7 +164,7 @@ type RetryConfig = {
   onRetry?: (attempt: number, error: Error) => Promise<void> | void;
 };
 
-type NodeConfig<S, P = void, E = void> = BaseNodeConfig<S, P, E> & {
+export type NodeConfig<S, P = void, E = void> = BaseNodeConfig<S, P, E> & {
   retry?: RetryConfig;
   timeout?: number; // milliseconds - applies to exec() phase
 };
@@ -180,7 +180,7 @@ class NodeTimeoutError extends Error {
 }
 
 // Full-featured Node with retry, timeout, etc.
-class Node<S, P = void, E = void> extends BaseNode<S, P, E> {
+export class Node<S, P = void, E = void> extends BaseNode<S, P, E> {
   private retryConfig?: RetryConfig;
   private timeout?: number;
 
@@ -248,7 +248,7 @@ class Node<S, P = void, E = void> extends BaseNode<S, P, E> {
 // ParallelNode
 // ============================================================================
 
-type ParallelNodeConfig<S, P = void, E = void> = {
+export type ParallelNodeConfig<S, P = void, E = void> = {
   name?: string;
   prep: (shared: S) => Promise<P[]> | P[];
   exec: (item: P) => Promise<E> | E;
@@ -262,7 +262,11 @@ type ParallelNodeConfig<S, P = void, E = void> = {
   timeout?: number;
 };
 
-class ParallelNode<S, P = void, E = void> extends Node<S, P[] | P, E[] | E> {
+export class ParallelNode<S, P = void, E = void> extends Node<
+  S,
+  P[] | P,
+  E[] | E
+> {
   constructor(config: ParallelNodeConfig<S, P, E>) {
     super({
       name: config?.name,
@@ -282,6 +286,3 @@ class ParallelNode<S, P = void, E = void> extends Node<S, P[] | P, E[] | E> {
     )) as E[];
   }
 }
-
-export { BaseNode, Node, ParallelNode };
-export type { NodeConfig, ParallelNodeConfig };

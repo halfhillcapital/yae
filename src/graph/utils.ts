@@ -22,13 +22,13 @@ import {
  * you to define the State once and have P and E inferred
  * automatically from your logic.
  */
-const node = <S>() => {
+export const node = <S>() => {
   return <P = void, E = void>(config: NodeConfig<S, P, E>) => {
     return new Node<S, P, E>(config);
   };
 };
 
-const parallel = <S>() => {
+export const parallel = <S>() => {
   return <P = void, E = void>(config: ParallelNodeConfig<S, P, E>) => {
     return new ParallelNode<S, P, E>(config);
   };
@@ -82,7 +82,7 @@ function ouroboros<S>(...items: Chainable<S>[]): {
   };
 }
 
-function chain<S>(...items: Chainable<S>[]): GraphNode<S> {
+export function chain<S>(...items: Chainable<S>[]): GraphNode<S> {
   const { first } = ouroboros<S>(...items);
   return first;
 }
@@ -107,7 +107,7 @@ function chain<S>(...items: Chainable<S>[]): GraphNode<S> {
  * // Or use entry/exit directly
  * const { entry, exit } = branch(router, { ... });
  */
-function branch<S, K extends string>(
+export function branch<S, K extends string>(
   router: GraphNode<S>,
   routes: Record<K, GraphNode<S>[]>,
 ): Branch<S> {
@@ -133,11 +133,12 @@ function branch<S, K extends string>(
 
 // Flow Utilities
 
-function sequential<S>(nodes: GraphNode<S>[], config?: FlowConfig<S>): Flow<S> {
+export function sequential<S>(
+  nodes: GraphNode<S>[],
+  config?: FlowConfig<S>,
+): Flow<S> {
   if (nodes.length === 0) {
     throw new Error("sequential() requires at least one node");
   }
   return Flow.from(chain(...nodes), config);
 }
-
-export { node, parallel, chain, branch, sequential };

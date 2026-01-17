@@ -2,7 +2,7 @@ import { type AgentContext } from "@yae/db/index.ts";
 
 const MAX_QUEUE_SIZE = 100;
 
-class YaeAgent {
+export class YaeAgent {
   private workers: WorkerAgent[] = [];
 
   constructor(
@@ -24,7 +24,7 @@ class YaeAgent {
   }
 }
 
-class WorkerAgent {
+export class WorkerAgent {
   private queue: string[] = [];
   private _lastActiveAt: number = Date.now();
   private signal: { promise: Promise<void>; resolve: () => void };
@@ -93,5 +93,3 @@ class WorkerAgent {
     }
   }
 }
-
-export { YaeAgent, WorkerAgent };

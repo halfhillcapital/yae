@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { AgentContext, AdminContext, type User } from "@yae/db";
-import { YaeAgent } from "@yae/agent";
+import { YaeAgent } from "./agents";
 
 const YAE_DB_PATH = "./data/yae.db";
 

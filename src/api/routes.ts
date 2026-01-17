@@ -15,7 +15,7 @@ export const routes = new Elysia()
         {
           status: 429,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       ),
     }),
   )
@@ -75,19 +75,23 @@ export const routes = new Elysia()
       const files = await agent.files.getFileTree("/");
       const conversation = agent.messages.getAll();
 
-      const response = await b.ChatWithAgentContext(memories, files, conversation);
+      const response = await b.ChatWithAgentContext(
+        memories,
+        files,
+        conversation,
+      );
 
       const agentMessage: Message = { role: "assistant", content: response };
       await agent.messages.save(agentMessage);
 
       return {
         success: true,
-        message: response
+        message: response,
       };
     },
     {
       body: t.Object({
-        message: t.String()
+        message: t.String(),
       }),
     },
   );

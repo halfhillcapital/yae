@@ -85,7 +85,8 @@ export class FileRepository {
     });
 
     for (const entry of entries) {
-      const entryPath = path === "/" ? `/${entry.name}` : `${path}/${entry.name}`;
+      const entryPath =
+        path === "/" ? `/${entry.name}` : `${path}/${entry.name}`;
       if (entry.stats.isDirectory()) {
         tree += `${indent}├── ${entry.name}/\n`;
         tree += await this.getFileTree(entryPath, `${indent}│   `);

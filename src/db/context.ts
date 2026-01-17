@@ -39,10 +39,7 @@ export class AgentContext {
     this.files = new FileRepository(fs);
   }
 
-  static async create(
-    agentId: string,
-    dbPath?: string,
-  ): Promise<AgentContext> {
+  static async create(agentId: string, dbPath?: string): Promise<AgentContext> {
     const path = dbPath ?? `${AGENTS_DB_DIR}/agent_${agentId}.db`;
     const dir = path.substring(0, path.lastIndexOf("/"));
     await ensureDir(dir);
@@ -65,9 +62,7 @@ export type User = {
 };
 
 export class AdminContext {
-  private constructor(
-    private readonly db: ReturnType<typeof drizzle>,
-  ) {}
+  private constructor(private readonly db: ReturnType<typeof drizzle>) {}
 
   static async create(dbPath: string): Promise<AdminContext> {
     const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));

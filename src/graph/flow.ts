@@ -1,7 +1,7 @@
 import { BaseNode } from "./node";
 import type { GraphNode, NextAction } from "./types";
 
-type FlowConfig<S> = {
+export type FlowConfig<S> = {
   name?: string;
   maxIterations?: number; // Guard against infinite loops (default: 1000)
   beforeStart?: (shared: S) => Promise<void> | void;
@@ -17,7 +17,7 @@ type FlowConfig<S> = {
   ) => Promise<void> | void;
 };
 
-class Flow<S> extends BaseNode<S, void, void> {
+export class Flow<S> extends BaseNode<S, void, void> {
   constructor(
     private start: GraphNode<S>,
     private config?: FlowConfig<S>,
@@ -67,6 +67,3 @@ class Flow<S> extends BaseNode<S, void, void> {
     return await this.work(shared);
   }
 }
-
-export { Flow };
-export type { FlowConfig };

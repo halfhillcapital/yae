@@ -41,9 +41,7 @@ export class MemoryRepository {
         .where(eq(memoryTable.label, label));
     } else {
       // Insert new
-      await this.db
-        .insert(memoryTable)
-        .values({ label, description, content });
+      await this.db.insert(memoryTable).values({ label, description, content });
     }
 
     this.blocks.set(label, {
@@ -59,9 +57,7 @@ export class MemoryRepository {
       return false;
     }
 
-    await this.db
-      .delete(memoryTable)
-      .where(eq(memoryTable.label, label));
+    await this.db.delete(memoryTable).where(eq(memoryTable.label, label));
     this.blocks.delete(label);
     return true;
   }

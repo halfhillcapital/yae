@@ -17,7 +17,9 @@ export class MessagesRepository {
   }
 
   async save(message: Message): Promise<void> {
-    await this.db.insert(messagesTable).values({ role: message.role, content: message.content });
+    await this.db
+      .insert(messagesTable)
+      .values({ role: message.role, content: message.content });
     this.conversations.push(message);
     this.prune();
   }
