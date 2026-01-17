@@ -5,7 +5,6 @@ export type {
   WorkflowRun,
   WorkflowDefinition,
   WorkflowResult,
-  WorkflowTask,
 } from "./types.ts";
 
 // Registry

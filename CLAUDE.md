@@ -152,10 +152,100 @@ yae.memory.get("label");
 
 ### Agents (`src/core/`)
 
-- **YaeAgent** (`src/core/agents.ts`): Container class with `memory`, `messages`, and `files` repositories
-- **WorkerAgent** (`src/core/agents.ts`): Task execution worker with event-driven loop (promise-based, not polling), queue management (max 100 tasks), and activity tracking
+- **YaeAgent** (`src/core/agents.ts`): Container class with `memory`, `messages`, `files` repositories and workflow execution
+- **WorkerAgent** (`src/core/agents.ts`): Workflow execution worker with event-driven loop (promise-based, not polling), queue management (max 100 workflows), and activity tracking
 
-**Database:** `./data/agents/agent_{id}.db` (memory + messages tables)
+```ts
+// YaeAgent delegates workflow execution to its worker
+const result = await agent.runWorkflow<MyData>("my-workflow", { input: "data" });
+
+// WorkerAgent handles the queue internally
+worker.enqueue<MyData>("my-workflow", initialData); // Returns Promise<WorkflowResult<MyData>>
+```
+
+**Database:** `./data/agents/agent_{id}.db` (memory + messages + workflow_runs tables)
+
+### Workflows (`src/workflow/`)
+
+The workflow system executes graph-based flows with agent context access.
+
+**File structure:**
+
+- `types.ts` - Type definitions (`AgentState`, `WorkflowDefinition`, `WorkflowResult`, `WorkflowRun`)
+- `registry.ts` - Singleton workflow registry
+- `executor.ts` - WorkflowExecutor class
+- `utils.ts` - Factory helpers (`workflow()`, `createAgentNode()`, `createAgentParallel()`)
+- `index.ts` - Barrel export
+
+**WorkflowRegistry** (singleton): Register workflows before execution.
+
+```ts
+import { WorkflowRegistry, workflow } from "@yae/workflow";
+
+// Register a workflow
+WorkflowRegistry.register(
+  workflow({
+    id: "my-workflow",
+    name: "My Workflow",
+    create: (initial) => ({
+      flow: Flow.from(startNode),
+      initialState: { count: 0, ...initial },
+    }),
+  })
+);
+
+// Check/list workflows
+WorkflowRegistry.has("my-workflow");
+WorkflowRegistry.list();
+WorkflowRegistry.listIds();
+```
+
+**WorkflowExecutor**: Manages workflow lifecycle.
+
+```ts
+const executor = new WorkflowExecutor(agentId, ctx);
+
+// Run a workflow
+const result = await executor.run<MyData>("my-workflow", { input: "value" });
+// result: { runId, status, finalAction, state, duration, error? }
+
+// Cancel a running workflow
+await executor.cancel(runId);
+
+// Query history
+const runs = await executor.history<MyData>(50);
+const run = await executor.getRun<MyData>(runId);
+```
+
+**AgentState\<T\>**: Shared state passed through workflow nodes.
+
+```ts
+interface AgentState<T> {
+  readonly memory: MemoryRepository;   // Labeled memory blocks
+  readonly messages: MessagesRepository; // Conversation history
+  readonly files: FileRepository;      // File system operations
+  data: T;                             // Workflow-specific data (mutable)
+  readonly run: {                      // Runtime info
+    id: string;
+    workflowId: string;
+    startedAt: number;
+  };
+}
+```
+
+**Workflow-aware node factories** (in `utils.ts`):
+
+```ts
+// Create nodes that work with AgentState
+const myNode = createAgentNode<MyData>()({
+  prep: (s) => s.data.items,
+  exec: (items) => items.length,
+  post: (s, _prep, count) => {
+    s.data.count = count;
+    return undefined;
+  },
+});
+```
 
 ### Database (`src/db/`)
 

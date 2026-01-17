@@ -24,14 +24,12 @@ export interface AgentState<T = Record<string, unknown>> {
     id: string;
     workflowId: string;
     startedAt: number;
-    currentNode?: string;
   };
 }
 
 export type WorkflowStatus =
   | "pending"
   | "running"
-  | "paused"
   | "completed"
   | "failed"
   | "cancelled";
@@ -46,10 +44,6 @@ export interface WorkflowRun<T = Record<string, unknown>> {
   status: WorkflowStatus;
   /** Serialized workflow-specific data */
   state: T;
-  /** Name of the current node (for resumption) */
-  currentNode?: string;
-  /** Last action returned by a node */
-  lastAction?: string;
   /** Error message if status is 'failed' */
   error?: string;
   startedAt: number;
@@ -87,16 +81,3 @@ export interface WorkflowResult<T = Record<string, unknown>> {
   error?: string;
 }
 
-/**
- * Task item for workflow execution in the worker queue.
- */
-export interface WorkflowTask {
-  type: "workflow";
-  workflowId: string;
-  /** Existing run ID for resumption */
-  runId?: string;
-  /** Initial data to merge into workflow state */
-  initialData?: Record<string, unknown>;
-  resolve: (result: WorkflowResult<unknown>) => void;
-  reject: (error: Error) => void;
-}

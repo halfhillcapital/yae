@@ -76,7 +76,7 @@ export interface DefineWorkflowConfig<T> {
     chain: typeof chain<AgentState<T>>;
   }) => GraphNode<AgentState<T>> | Chainable<AgentState<T>>[];
   /** Optional flow configuration */
-  flowConfig?: Omit<FlowConfig<AgentState<T>>, "onCheckpoint">;
+  flowConfig?: FlowConfig<AgentState<T>>;
 }
 
 /**

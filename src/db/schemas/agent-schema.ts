@@ -35,8 +35,6 @@ export const workflowRunsTable = table(
     agentId: text().notNull(),
     status: text().notNull(),
     state: text().notNull(), // JSON serialized
-    currentNode: text(),
-    lastAction: text(),
     error: text(),
     startedAt: int().notNull(),
     updatedAt: int().notNull(),

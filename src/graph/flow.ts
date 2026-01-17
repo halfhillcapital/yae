@@ -10,12 +10,6 @@ export type FlowConfig<S> = {
     node: GraphNode<S>,
     action?: NextAction,
   ) => Promise<void> | void;
-  /** Called after each node completes for state persistence/checkpointing */
-  onCheckpoint?: (
-    shared: S,
-    nodeId: string,
-    action?: NextAction,
-  ) => Promise<void> | void;
   onError?: (
     error: Error,
     node: GraphNode<S>,
@@ -53,11 +47,6 @@ export class Flow<S> extends BaseNode<S, void, void> {
         }
         action = await currentNode.work(shared);
         await this.config?.onNodeExecute?.(currentNode, action);
-        await this.config?.onCheckpoint?.(
-          shared,
-          currentNode.name ?? `node_${iterations}`,
-          action,
-        );
       } catch (error) {
         await this.config?.onError?.(error as Error, currentNode, shared);
         throw error;
