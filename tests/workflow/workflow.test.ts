@@ -359,7 +359,11 @@ test("Workflow can read and write to agent memory", async () => {
   defineWorkflow<MemoryData>({
     id: "memory-test",
     name: "Memory Test",
-    initialState: () => ({ key: "test-key", value: "test-value", retrieved: undefined }),
+    initialState: () => ({
+      key: "test-key",
+      value: "test-value",
+      retrieved: undefined,
+    }),
     build: ({ node, chain }) => {
       const saveToMemory = node({
         name: "save-to-memory",

@@ -80,4 +80,3 @@ export interface WorkflowResult<T = Record<string, unknown>> {
   duration: number;
   error?: string;
 }
-
