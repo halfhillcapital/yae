@@ -1,13 +1,14 @@
 import { timingSafeEqual } from "node:crypto";
-import { AgentContext, AdminContext, type User } from "@yae/db";
-import { YaeAgent } from "./agents";
 
-const YAE_DB_PATH = "./data/yae.db";
+import { DATA_DIR, AGENTS_DB_DIR } from "./constants.ts";
+import { AgentContext, AdminContext, type User } from "@yae/db";
+import { UserAgent, WorkerAgent } from "./agents";
 
 export type HealthStatus = {
   status: "ok" | "degraded" | "error";
   uptime: number;
   activeAgents: number;
+  pool: { available: number; busy: number };
   timestamp: number;
 };
 
@@ -15,7 +16,12 @@ export class Yae {
   private static instance: Yae | null = null;
   private readonly startTime = Date.now();
   private readonly adminToken: string;
-  private userAgents = new Map<string, YaeAgent>();
+  private userAgents = new Map<string, UserAgent>();
+
+  // Worker pool
+  private availableWorkers: WorkerAgent[] = [];
+  private busyWorkers = new Map<string, WorkerAgent>();
+  private static readonly DEFAULT_POOL_SIZE = 4;
 
   private constructor(
     private readonly ctx: AgentContext,
@@ -41,11 +47,52 @@ export class Yae {
   static async initialize(): Promise<Yae> {
     if (Yae.instance) return Yae.instance;
 
-    const ctx = await AgentContext.create("yae", YAE_DB_PATH);
-    const admin = await AdminContext.create(YAE_DB_PATH);
+    const ctx = await AgentContext.create("yae", DATA_DIR);
+    const admin = await AdminContext.create(DATA_DIR + "/yae.db");
 
     Yae.instance = new Yae(ctx, admin);
+    Yae.instance.initializePool();
     return Yae.instance;
+  }
+
+  private initializePool(size: number = Yae.DEFAULT_POOL_SIZE): void {
+    for (let i = 0; i < size; i++) {
+      this.availableWorkers.push(new WorkerAgent(crypto.randomUUID()));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Worker Pool Management
+  // ─────────────────────────────────────────────────────────────
+
+  checkoutWorker(agentId: string, workflowId: string): WorkerAgent | null {
+    const worker = this.availableWorkers.pop();
+    if (!worker) return null;
+
+    worker.currentAgentId = agentId;
+    worker.currentWorkflowId = workflowId;
+    this.busyWorkers.set(worker.id, worker);
+    return worker;
+  }
+
+  returnWorker(workerId: string): void {
+    const worker = this.busyWorkers.get(workerId);
+    if (worker) {
+      console.log(
+        `[Yae] Worker ${worker.id} returned by agent ${worker.currentAgentId} (workflow: ${worker.currentWorkflowId})`,
+      );
+      worker.currentAgentId = null;
+      worker.currentWorkflowId = null;
+      this.busyWorkers.delete(workerId);
+      this.availableWorkers.push(worker);
+    }
+  }
+
+  getPoolStatus(): { available: number; busy: number } {
+    return {
+      available: this.availableWorkers.length,
+      busy: this.busyWorkers.size,
+    };
   }
 
   static getInstance(): Yae {
@@ -59,23 +106,23 @@ export class Yae {
   // User Agent Management
   // ─────────────────────────────────────────────────────────────
 
-  async createUserAgent(userId: string): Promise<YaeAgent> {
+  async createUserAgent(userId: string): Promise<UserAgent> {
     const existing = this.userAgents.get(userId);
     if (existing) return existing;
 
     const agentId = crypto.randomUUID();
-    const ctx = await AgentContext.create(agentId);
-    const agent = new YaeAgent(agentId, userId, ctx);
+    const ctx = await AgentContext.create(agentId, AGENTS_DB_DIR);
+    const agent = new UserAgent(agentId, userId, ctx);
 
     this.userAgents.set(userId, agent);
     return agent;
   }
 
-  getUserAgent(userId: string): YaeAgent | undefined {
+  getUserAgent(userId: string): UserAgent | undefined {
     return this.userAgents.get(userId);
   }
 
-  listUserAgents(): Map<string, YaeAgent> {
+  listUserAgents(): Map<string, UserAgent> {
     return new Map(this.userAgents);
   }
 
@@ -116,6 +163,7 @@ export class Yae {
       status: "ok",
       uptime: Date.now() - this.startTime,
       activeAgents: this.userAgents.size,
+      pool: this.getPoolStatus(),
       timestamp: Date.now(),
     };
   }
@@ -123,11 +171,12 @@ export class Yae {
   async shutdown(): Promise<void> {
     console.log("[Yae] Shutting down...");
 
-    // Stop all user agents
-    for (const [userId, _agent] of this.userAgents) {
-      console.log(`[Yae] Stopping agent for user: ${userId}`);
-      // agent.stop() when implemented
-    }
+    // Clear worker pools (workers are stateless, no stop() needed)
+    console.log(
+      `[Yae] Clearing ${this.availableWorkers.length} available, ${this.busyWorkers.size} busy workers`,
+    );
+    this.availableWorkers = [];
+    this.busyWorkers.clear();
 
     this.userAgents.clear();
     console.log("[Yae] Shutdown complete.");

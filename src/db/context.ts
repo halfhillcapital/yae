@@ -16,9 +16,6 @@ import {
   WorkflowRepository,
 } from "./repositories/index.ts";
 
-const DATA_DIR = "./data";
-const AGENTS_DB_DIR = `${DATA_DIR}/agents`;
-
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
@@ -44,10 +41,10 @@ export class AgentContext {
 
   static async create(
     agentId: string,
-    dbPath: string = AGENTS_DB_DIR,
+    dbPath: string,
   ): Promise<AgentContext> {
     const inMemory = dbPath === ":memory:";
-    const path = inMemory ? dbPath : `${dbPath}/agent_${agentId}.db`;
+    const path = inMemory ? dbPath : `${dbPath}/${agentId}.db`;
 
     if (!inMemory) {
       const dir = path.substring(0, path.lastIndexOf("/"));
@@ -56,7 +53,7 @@ export class AgentContext {
 
     const fs = await AgentFS.open({ path });
     const client = createClient({
-      url: inMemory ? `:memory:` : `file:${path}`,
+      url: inMemory ? dbPath : `file:${path}`,
     });
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: "./drizzle/agent" });
