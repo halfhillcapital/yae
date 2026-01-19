@@ -122,7 +122,7 @@ exit.to(customEndNode);
 
 ### Yae - The Server (`src/core/`)
 
-**Yae** is the singleton that IS the server. She manages user agents, user authentication, and server lifecycle.
+**Yae** is the singleton that IS the server. She manages user agents, user authentication, worker pool, and server lifecycle.
 
 ```ts
 const yae = await Yae.initialize();
@@ -140,27 +140,35 @@ yae.listUserAgents();
 await yae.registerUser("Alice", "admin");
 await yae.getUserByApiKey(apiKey);
 
+// Worker pool (used internally by UserAgent.runWorkflow)
+yae.checkoutWorker();     // Get a worker from the pool (or null if exhausted)
+yae.returnWorker(id);     // Return a worker to the pool
+yae.getPoolStatus();      // { available: number, busy: number }
+
 // Server control
-yae.getHealth();
+yae.getHealth();          // Includes pool status
 await yae.shutdown();
 
 // Yae's own persistence
 yae.memory.get("label");
 ```
 
+**Worker Pool:** Initialized with 4 workers at startup. Workers are stateless and shared across all agents.
+
 **Database:** `./data/yae.db` (memory + messages + users tables)
 
 ### Agents (`src/core/`)
 
-- **YaeAgent** (`src/core/agents.ts`): Container class with `memory`, `messages`, `files` repositories and workflow execution
-- **WorkerAgent** (`src/core/agents.ts`): Workflow execution worker with event-driven loop (promise-based, not polling), queue management (max 100 workflows), and activity tracking
+- **UserAgent** (`src/core/agents.ts`): Container class with `memory`, `messages`, `files` repositories. Executes workflows by checking out workers from Yae's pool.
+- **WorkerAgent** (`src/core/agents.ts`): Stateless workflow executor. Workers are pooled in Yae and shared across all agents.
 
 ```ts
-// YaeAgent delegates workflow execution to its worker
+// UserAgent checks out a worker from the pool, executes, then returns it
 const result = await agent.runWorkflow<MyData>("my-workflow", { input: "data" });
+// Throws "No workers available in pool" if pool is exhausted
 
-// WorkerAgent handles the queue internally
-worker.enqueue<MyData>("my-workflow", initialData); // Returns Promise<WorkflowResult<MyData>>
+// WorkerAgent.execute() is called internally with the agent's context
+worker.execute<MyData>(workflowId, agentId, ctx, initialData);
 ```
 
 **Database:** `./data/agents/agent_{id}.db` (memory + messages + workflow_runs tables)
@@ -174,25 +182,33 @@ The workflow system executes graph-based flows with agent context access.
 - `types.ts` - Type definitions (`AgentState`, `WorkflowDefinition`, `WorkflowResult`, `WorkflowRun`)
 - `registry.ts` - Singleton workflow registry
 - `executor.ts` - WorkflowExecutor class
-- `utils.ts` - Factory helpers (`workflow()`, `createAgentNode()`, `createAgentParallel()`)
+- `utils.ts` - `defineWorkflow()` helper
 - `index.ts` - Barrel export
 
 **WorkflowRegistry** (singleton): Register workflows before execution.
 
 ```ts
-import { WorkflowRegistry, workflow } from "@yae/workflow";
+import { defineWorkflow, WorkflowRegistry } from "@yae/workflow";
 
-// Register a workflow
-WorkflowRegistry.register(
-  workflow({
-    id: "my-workflow",
-    name: "My Workflow",
-    create: (initial) => ({
-      flow: Flow.from(startNode),
-      initialState: { count: 0, ...initial },
-    }),
-  })
-);
+// Define a workflow
+const myWorkflow = defineWorkflow<{ count: number }>({
+  id: "my-workflow",
+  name: "My Workflow",
+  initialState: () => ({ count: 0 }),
+  build: ({ node, chain }) => {
+    const increment = node({
+      name: "increment",
+      post: (state) => {
+        state.data.count++;
+        return undefined;
+      },
+    });
+    return chain(increment);
+  },
+});
+
+// Register explicitly
+WorkflowRegistry.register(myWorkflow);
 
 // Check/list workflows
 WorkflowRegistry.has("my-workflow");
@@ -233,18 +249,31 @@ interface AgentState<T> {
 }
 ```
 
-**Workflow-aware node factories** (in `utils.ts`):
+**`defineWorkflow()` helper** (in `utils.ts`):
+
+The `build` function receives helpers (`node`, `parallel`, `chain`, `branch`) pre-bound to `AgentState<T>`:
 
 ```ts
-// Create nodes that work with AgentState
-const myNode = createAgentNode<MyData>()({
-  prep: (s) => s.data.items,
-  exec: (items) => items.length,
-  post: (s, _prep, count) => {
-    s.data.count = count;
-    return undefined;
+const workflow = defineWorkflow<{ items: string[]; count: number }>({
+  id: "example",
+  name: "Example Workflow",
+  initialState: () => ({ items: [], count: 0 }),
+  build: ({ node, parallel, chain, branch }) => {
+    // node() and parallel() create nodes that work with AgentState
+    const count = node<string[], number>({
+      prep: (s) => s.data.items,
+      exec: (items) => items.length,
+      post: (s, _prep, count) => {
+        s.data.count = count;
+        return undefined;
+      },
+    });
+
+    // chain() and branch() work the same as in @yae/graph
+    return chain(count);
   },
 });
+WorkflowRegistry.register(workflow);
 ```
 
 ### Database (`src/db/`)
