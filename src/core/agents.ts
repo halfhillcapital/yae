@@ -37,7 +37,7 @@ export class UserAgent {
     data?: Partial<T>,
   ): Promise<WorkflowResult<T>> {
     const yae = Yae.getInstance();
-    const worker = yae.checkoutWorker(this.id, workflow.id);
+    const worker = yae.checkoutWorker(this.id);
     if (!worker) {
       throw new Error("No workers available in pool");
     }
@@ -56,8 +56,7 @@ export class UserAgent {
  */
 export class WorkerAgent {
   // Checkout metadata (set by Yae on checkout, cleared on return)
-  currentAgentId: string | null = null;
-  currentWorkflowId: string | null = null;
+  currentOwner: string | null = null;
 
   constructor(public readonly id: string) {}
 

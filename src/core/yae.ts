@@ -65,12 +65,11 @@ export class Yae {
   // Worker Pool Management
   // ─────────────────────────────────────────────────────────────
 
-  checkoutWorker(agentId: string, workflowId: string): WorkerAgent | null {
+  checkoutWorker(agentId: string): WorkerAgent | null {
     const worker = this.availableWorkers.pop();
     if (!worker) return null;
 
-    worker.currentAgentId = agentId;
-    worker.currentWorkflowId = workflowId;
+    worker.currentOwner = agentId;
     this.busyWorkers.set(worker.id, worker);
     return worker;
   }
@@ -79,10 +78,9 @@ export class Yae {
     const worker = this.busyWorkers.get(workerId);
     if (worker) {
       console.log(
-        `[Yae] Worker ${worker.id} returned by agent ${worker.currentAgentId} (workflow: ${worker.currentWorkflowId})`,
+        `[Yae] Worker ${worker.id} returned by agent ${worker.currentOwner}.`,
       );
-      worker.currentAgentId = null;
-      worker.currentWorkflowId = null;
+      worker.currentOwner = null;
       this.busyWorkers.delete(workerId);
       this.availableWorkers.push(worker);
     }
