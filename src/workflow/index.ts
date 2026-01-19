@@ -14,5 +14,5 @@ export { WorkflowRegistry } from "./registry.ts";
 export { WorkflowExecutor } from "./executor.ts";
 
 // Utilities
-export { agentNode, agentParallel, defineWorkflow } from "./utils.ts";
+export { defineWorkflow } from "./utils.ts";
 export type { DefineWorkflowConfig } from "./utils.ts";

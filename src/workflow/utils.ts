@@ -7,43 +7,17 @@ import {
 import { Flow, type FlowConfig } from "@yae/graph/flow.ts";
 import { chain } from "@yae/graph/utils.ts";
 import type { GraphNode, Chainable } from "@yae/graph/types.ts";
-import { WorkflowRegistry } from "./registry.ts";
 import type { AgentState, WorkflowDefinition } from "./types.ts";
 
-/**
- * Curried factory for creating nodes that operate on AgentState.
- * Provides type inference for the workflow-specific data type T.
- *
- * @example
- * const increment = agentNode<{ count: number }>()({
- *   name: "increment",
- *   post: (state) => {
- *     state.data.count++;
- *     return undefined;
- *   }
- * });
- */
-export const agentNode = <T>() => {
+/** Curried factory for creating nodes that operate on AgentState. */
+const agentNode = <T>() => {
   return <P = void, E = void>(config: NodeConfig<AgentState<T>, P, E>) => {
     return new Node<AgentState<T>, P, E>(config);
   };
 };
 
-/**
- * Curried factory for creating parallel nodes that operate on AgentState.
- *
- * @example
- * const processItems = agentParallel<{ items: string[] }>()({
- *   name: "processItems",
- *   prep: (state) => state.data.items,
- *   exec: (item) => item.toUpperCase(),
- *   post: (state, _prep, results) => {
- *     state.data.items = results;
- *     return undefined;
- *   }
- * });
- */
-export const agentParallel = <T>() => {
+/** Curried factory for creating parallel nodes that operate on AgentState. */
+const agentParallel = <T>() => {
   return <P = void, E = void>(
     config: ParallelNodeConfig<AgentState<T>, P, E>,
   ) => {
@@ -73,14 +47,14 @@ export interface DefineWorkflowConfig<T> {
     /** Curried parallel node factory pre-bound to AgentState<T> */
     parallel: ReturnType<typeof agentParallel<T>>;
     /** Chain utility for linking nodes */
-    chain: typeof chain<AgentState<T>>;
+    chain: typeof chain;
   }) => GraphNode<AgentState<T>> | Chainable<AgentState<T>>[];
   /** Optional flow configuration */
   flowConfig?: FlowConfig<AgentState<T>>;
 }
 
 /**
- * Define and register a workflow.
+ * Define a workflow.
  *
  * @example
  * const counterWorkflow = defineWorkflow<{ count: number }>({
@@ -112,11 +86,35 @@ export interface DefineWorkflowConfig<T> {
  *   }
  * });
  *
- * @returns The workflow definition (also auto-registered)
+ * // Register explicitly
+ * WorkflowRegistry.register(counterWorkflow);
+ *
+ * @returns The workflow definition (must be registered separately with WorkflowRegistry.register())
  */
 export function defineWorkflow<T>(
   config: DefineWorkflowConfig<T>,
 ): WorkflowDefinition<T> {
+  // Validate config
+  if (!config.id || typeof config.id !== "string") {
+    throw new Error("Workflow id must be a non-empty string");
+  }
+  if (!config.name || typeof config.name !== "string") {
+    throw new Error("Workflow name must be a non-empty string");
+  }
+  if (typeof config.build !== "function") {
+    throw new Error("Workflow build must be a function");
+  }
+  if (typeof config.initialState !== "function") {
+    throw new Error("Workflow initialState must be a function");
+  }
+
+  // Pre-build helpers (stateless, can be shared)
+  const helpers = {
+    node: agentNode<T>(),
+    parallel: agentParallel<T>(),
+    chain,
+  };
+
   const definition: WorkflowDefinition<T> = {
     id: config.id,
     name: config.name,
@@ -124,12 +122,7 @@ export function defineWorkflow<T>(
     create: (initialData?: Partial<T>) => {
       const initialState = { ...config.initialState(), ...initialData };
 
-      const graphResult = config.build({
-        node: agentNode<T>(),
-        parallel: agentParallel<T>(),
-        chain: (...items: Chainable<AgentState<T>>[]) =>
-          chain<AgentState<T>>(...items),
-      });
+      const graphResult = config.build(helpers);
 
       // Handle both single node and array of nodes
       const startNode = Array.isArray(graphResult)
@@ -145,6 +138,5 @@ export function defineWorkflow<T>(
     },
   };
 
-  WorkflowRegistry.register(definition);
   return definition;
 }
