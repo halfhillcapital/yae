@@ -27,12 +27,7 @@ export interface AgentState<T = Record<string, unknown>> {
   };
 }
 
-export type WorkflowStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
+export type WorkflowStatus = "pending" | "running" | "completed" | "failed";
 
 /**
  * Persisted record of a workflow execution.
@@ -75,7 +70,6 @@ export interface WorkflowDefinition<T = Record<string, unknown>> {
 export interface WorkflowResult<T = Record<string, unknown>> {
   runId: string;
   status: WorkflowStatus;
-  finalAction?: string;
   state: T;
   duration: number;
   error?: string;

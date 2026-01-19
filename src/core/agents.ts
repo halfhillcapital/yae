@@ -21,6 +21,10 @@ export class UserAgent {
     return this.ctx.files;
   }
 
+  get workflows() {
+    return this.ctx.workflows;
+  }
+
   /**
    * Execute a workflow by checking out a worker from the pool.
    */
