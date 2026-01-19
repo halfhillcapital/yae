@@ -5,7 +5,6 @@ import {
   WorkflowRegistry,
   WorkflowExecutor,
 } from "@yae/workflow/index.ts";
-import { branch } from "@yae/graph/index.ts";
 
 function getTestDbPath(): string {
   return ":memory:"; // Use in-memory DB for tests
@@ -299,7 +298,7 @@ test("Workflow supports conditional branching", async () => {
     id: "branch-test",
     name: "Branch Test",
     initialState: () => ({ amount: 150, status: "pending", path: [] }),
-    build: ({ node, chain }) => {
+    build: ({ node, chain, branch }) => {
       const router = node({
         name: "router",
         post: (state) => {

@@ -5,7 +5,7 @@ import {
   type ParallelNodeConfig,
 } from "@yae/graph/node.ts";
 import { Flow, type FlowConfig } from "@yae/graph/flow.ts";
-import { chain } from "@yae/graph/utils.ts";
+import { branch, chain } from "@yae/graph/utils.ts";
 import type { GraphNode, Chainable } from "@yae/graph/types.ts";
 import type { AgentState, WorkflowDefinition } from "./types.ts";
 
@@ -48,6 +48,8 @@ export interface DefineWorkflowConfig<T> {
     parallel: ReturnType<typeof agentParallel<T>>;
     /** Chain utility for linking nodes */
     chain: typeof chain;
+    /** Branch utility for conditional routing */
+    branch: typeof branch;
   }) => GraphNode<AgentState<T>> | Chainable<AgentState<T>>[];
   /** Optional flow configuration */
   flowConfig?: FlowConfig<AgentState<T>>;
@@ -113,6 +115,7 @@ export function defineWorkflow<T>(
     node: agentNode<T>(),
     parallel: agentParallel<T>(),
     chain,
+    branch,
   };
 
   const definition: WorkflowDefinition<T> = {
