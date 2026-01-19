@@ -26,6 +26,21 @@ export const routes = new Elysia()
     return yae.getHealth();
   })
 
+  // API key verification endpoint (no auth required)
+  .post(
+    "/verify",
+    async ({ body }) => {
+      const yae = Yae.getInstance();
+      const user = await yae.getUserByApiKey(body.apiKey);
+      return { valid: !!user };
+    },
+    {
+      body: t.Object({
+        apiKey: t.String(),
+      }),
+    },
+  )
+
   // Admin routes
   .group("/admin", (app) =>
     app
