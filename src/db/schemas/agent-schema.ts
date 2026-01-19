@@ -26,3 +26,22 @@ export const messagesTable = table(
   },
   (t) => [index("messages_created_idx").on(t.createdAt)],
 );
+
+export const workflowRunsTable = table(
+  "workflow_runs",
+  {
+    id: text().primaryKey(),
+    workflowId: text().notNull(),
+    agentId: text().notNull(),
+    status: text().notNull(),
+    state: text().notNull(), // JSON serialized
+    error: text(),
+    startedAt: int().notNull(),
+    updatedAt: int().notNull(),
+    completedAt: int(),
+  },
+  (t) => [
+    index("workflow_runs_agent_idx").on(t.agentId),
+    index("workflow_runs_status_idx").on(t.status),
+  ],
+);

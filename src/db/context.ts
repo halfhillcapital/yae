@@ -13,10 +13,8 @@ import {
   FileRepository,
   MemoryRepository,
   MessagesRepository,
+  WorkflowRepository,
 } from "./repositories/index.ts";
-
-const DATA_DIR = "./data";
-const AGENTS_DB_DIR = `${DATA_DIR}/agents`;
 
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
@@ -28,6 +26,7 @@ export class AgentContext {
   readonly memory: MemoryRepository;
   readonly messages: MessagesRepository;
   readonly files: FileRepository;
+  readonly workflows: WorkflowRepository;
 
   private constructor(
     public readonly agentId: string,
@@ -37,15 +36,25 @@ export class AgentContext {
     this.memory = new MemoryRepository(db);
     this.messages = new MessagesRepository(db);
     this.files = new FileRepository(fs);
+    this.workflows = new WorkflowRepository(db);
   }
 
-  static async create(agentId: string, dbPath?: string): Promise<AgentContext> {
-    const path = dbPath ?? `${AGENTS_DB_DIR}/agent_${agentId}.db`;
-    const dir = path.substring(0, path.lastIndexOf("/"));
-    await ensureDir(dir);
+  static async create(
+    agentId: string,
+    dbPath: string,
+  ): Promise<AgentContext> {
+    const inMemory = dbPath === ":memory:";
+    const path = inMemory ? dbPath : `${dbPath}/${agentId}.db`;
+
+    if (!inMemory) {
+      const dir = path.substring(0, path.lastIndexOf("/"));
+      await ensureDir(dir);
+    }
 
     const fs = await AgentFS.open({ path });
-    const client = createClient({ url: `file:${path}` });
+    const client = createClient({
+      url: inMemory ? dbPath : `file:${path}`,
+    });
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: "./drizzle/agent" });
 

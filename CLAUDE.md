@@ -122,7 +122,7 @@ exit.to(customEndNode);
 
 ### Yae - The Server (`src/core/`)
 
-**Yae** is the singleton that IS the server. She manages user agents, user authentication, and server lifecycle.
+**Yae** is the singleton that IS the server. She manages user agents, user authentication, worker pool, and server lifecycle.
 
 ```ts
 const yae = await Yae.initialize();
@@ -140,22 +140,141 @@ yae.listUserAgents();
 await yae.registerUser("Alice", "admin");
 await yae.getUserByApiKey(apiKey);
 
+// Worker pool (used internally by UserAgent.runWorkflow)
+yae.checkoutWorker();     // Get a worker from the pool (or null if exhausted)
+yae.returnWorker(id);     // Return a worker to the pool
+yae.getPoolStatus();      // { available: number, busy: number }
+
 // Server control
-yae.getHealth();
+yae.getHealth();          // Includes pool status
 await yae.shutdown();
 
 // Yae's own persistence
 yae.memory.get("label");
 ```
 
+**Worker Pool:** Initialized with 4 workers at startup. Workers are stateless and shared across all agents.
+
 **Database:** `./data/yae.db` (memory + messages + users tables)
 
-### User Agents (`src/agent/`)
+### Agents (`src/core/`)
 
-- **YaeAgent** (`src/agent/index.ts`): Container class with `memory`, `messages`, and `files` repositories
-- **WorkerAgent** (`src/agent/index.ts`): Task execution worker with event-driven loop (promise-based, not polling), queue management (max 100 tasks), and activity tracking
+- **UserAgent** (`src/core/agents.ts`): Container class with `memory`, `messages`, `files` repositories. Executes workflows by checking out workers from Yae's pool.
+- **WorkerAgent** (`src/core/agents.ts`): Stateless workflow executor. Workers are pooled in Yae and shared across all agents.
 
-**Database:** `./data/agents/agent_{id}.db` (memory + messages tables)
+```ts
+// UserAgent checks out a worker from the pool, executes, then returns it
+const result = await agent.runWorkflow<MyData>("my-workflow", { input: "data" });
+// Throws "No workers available in pool" if pool is exhausted
+
+// WorkerAgent.execute() is called internally with the agent's context
+worker.execute<MyData>(workflowId, agentId, ctx, initialData);
+```
+
+**Database:** `./data/agents/agent_{id}.db` (memory + messages + workflow_runs tables)
+
+### Workflows (`src/workflow/`)
+
+The workflow system executes graph-based flows with agent context access.
+
+**File structure:**
+
+- `types.ts` - Type definitions (`AgentState`, `WorkflowDefinition`, `WorkflowResult`, `WorkflowRun`)
+- `registry.ts` - Singleton workflow registry
+- `executor.ts` - WorkflowExecutor class
+- `utils.ts` - `defineWorkflow()` helper
+- `index.ts` - Barrel export
+
+**WorkflowRegistry** (singleton): Register workflows before execution.
+
+```ts
+import { defineWorkflow, WorkflowRegistry } from "@yae/workflow";
+
+// Define a workflow
+const myWorkflow = defineWorkflow<{ count: number }>({
+  id: "my-workflow",
+  name: "My Workflow",
+  initialState: () => ({ count: 0 }),
+  build: ({ node, chain }) => {
+    const increment = node({
+      name: "increment",
+      post: (state) => {
+        state.data.count++;
+        return undefined;
+      },
+    });
+    return chain(increment);
+  },
+});
+
+// Register explicitly
+WorkflowRegistry.register(myWorkflow);
+
+// Check/list workflows
+WorkflowRegistry.has("my-workflow");
+WorkflowRegistry.list();
+WorkflowRegistry.listIds();
+```
+
+**WorkflowExecutor**: Manages workflow lifecycle.
+
+```ts
+const executor = new WorkflowExecutor(agentId, ctx);
+
+// Run a workflow
+const result = await executor.run<MyData>("my-workflow", { input: "value" });
+// result: { runId, status, finalAction, state, duration, error? }
+
+// Cancel a running workflow
+await executor.cancel(runId);
+
+// Query history
+const runs = await executor.history<MyData>(50);
+const run = await executor.getRun<MyData>(runId);
+```
+
+**AgentState\<T\>**: Shared state passed through workflow nodes.
+
+```ts
+interface AgentState<T> {
+  readonly memory: MemoryRepository;   // Labeled memory blocks
+  readonly messages: MessagesRepository; // Conversation history
+  readonly files: FileRepository;      // File system operations
+  data: T;                             // Workflow-specific data (mutable)
+  readonly run: {                      // Runtime info
+    id: string;
+    workflowId: string;
+    startedAt: number;
+  };
+}
+```
+
+**`defineWorkflow()` helper** (in `utils.ts`):
+
+The `build` function receives helpers (`node`, `parallel`, `chain`, `branch`) pre-bound to `AgentState<T>`:
+
+```ts
+const workflow = defineWorkflow<{ items: string[]; count: number }>({
+  id: "example",
+  name: "Example Workflow",
+  initialState: () => ({ items: [], count: 0 }),
+  build: ({ node, parallel, chain, branch }) => {
+    // node() and parallel() create nodes that work with AgentState
+    const count = node<string[], number>({
+      prep: (s) => s.data.items,
+      exec: (items) => items.length,
+      post: (s, _prep, count) => {
+        s.data.count = count;
+        return undefined;
+      },
+    });
+
+    // chain() and branch() work the same as in @yae/graph
+    return chain(count);
+  },
+});
+WorkflowRegistry.register(workflow);
+```
 
 ### Database (`src/db/`)
 

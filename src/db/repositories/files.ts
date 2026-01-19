@@ -74,9 +74,13 @@ export class FileRepository {
     }
   }
 
-  async getFileTree(path: string, indent = ""): Promise<string> {
+  async getFileTree(path: string, indent = "", isRoot = true): Promise<string> {
     let tree = "";
     const entries = await this.client.fs.readdirPlus(path);
+
+    if (entries.length === 0 && isRoot) {
+      return "(No files stored yet)";
+    }
 
     entries.sort((a, b) => {
       if (a.stats.isDirectory() && !b.stats.isDirectory()) return -1;
@@ -89,7 +93,7 @@ export class FileRepository {
         path === "/" ? `/${entry.name}` : `${path}/${entry.name}`;
       if (entry.stats.isDirectory()) {
         tree += `${indent}├── ${entry.name}/\n`;
-        tree += await this.getFileTree(entryPath, `${indent}│   `);
+        tree += await this.getFileTree(entryPath, `${indent}│   `, false);
       } else {
         tree += `${indent}└── ${entry.name} (${entry.stats.size}b)\n`;
       }
@@ -98,9 +102,17 @@ export class FileRepository {
     return tree;
   }
 
-  async getFlatFileList(path: string, parent = ""): Promise<string> {
+  async getFlatFileList(
+    path: string,
+    parent = "",
+    isRoot = true,
+  ): Promise<string> {
     let fileList: string[] = [];
     const entries = await this.client.fs.readdirPlus(path);
+
+    if (entries.length === 0 && isRoot) {
+      return "(No files stored yet)";
+    }
 
     entries.sort((a, b) => {
       if (a.stats.isDirectory() && !b.stats.isDirectory()) return -1;
@@ -114,6 +126,7 @@ export class FileRepository {
         const subDirFiles = await this.getFlatFileList(
           path === "/" ? `/${entry.name}` : `${path}/${entry.name}`,
           entryPath,
+          false,
         );
         fileList = fileList.concat(subDirFiles);
       } else {

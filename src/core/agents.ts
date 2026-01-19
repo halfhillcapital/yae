@@ -1,10 +1,8 @@
 import { type AgentContext } from "@yae/db/index.ts";
+import { WorkflowExecutor, type WorkflowResult } from "@yae/workflow/index.ts";
+import { Yae } from "./yae.ts";
 
-const MAX_QUEUE_SIZE = 100;
-
-export class YaeAgent {
-  private workers: WorkerAgent[] = [];
-
+export class UserAgent {
   constructor(
     public readonly id: string,
     public readonly userId: string,
@@ -22,74 +20,49 @@ export class YaeAgent {
   get files() {
     return this.ctx.files;
   }
+
+  /**
+   * Execute a workflow by checking out a worker from the pool.
+   */
+  async runWorkflow<T>(
+    workflowId: string,
+    data?: Partial<T>,
+  ): Promise<WorkflowResult<T>> {
+    const yae = Yae.getInstance();
+    const worker = yae.checkoutWorker(this.id, workflowId);
+    if (!worker) {
+      throw new Error("No workers available in pool");
+    }
+
+    try {
+      return await worker.execute<T>(workflowId, this.id, this.ctx, data);
+    } finally {
+      yae.returnWorker(worker.id);
+    }
+  }
 }
 
+/**
+ * Stateless worker that executes workflows on behalf of agents.
+ * Workers are pooled and shared across all agents.
+ */
 export class WorkerAgent {
-  private queue: string[] = [];
-  private _lastActiveAt: number = Date.now();
-  private signal: { promise: Promise<void>; resolve: () => void };
-  private running: boolean = true;
+  // Checkout metadata (set by Yae on checkout, cleared on return)
+  currentAgentId: string | null = null;
+  currentWorkflowId: string | null = null;
 
-  constructor(
-    public readonly id: string,
-    public readonly agentId: string,
-  ) {
-    this.signal = this.createSignal();
-    this.loop();
-  }
+  constructor(public readonly id: string) {}
 
-  get lastActiveAt(): number {
-    return this._lastActiveAt;
-  }
-
-  enqueue(task: string): { success: boolean; error?: string } {
-    if (this.queue.length >= MAX_QUEUE_SIZE) {
-      return { success: false, error: "Queue is full" };
-    }
-
-    this._lastActiveAt = Date.now();
-    this.queue.push(task);
-
-    // Wake up the loop
-    this.signal.resolve();
-    return { success: true };
-  }
-
-  stop() {
-    this.running = false;
-    this.signal.resolve(); // Wake it up one last time so it exits the loop
-  }
-
-  private createSignal() {
-    let resolve!: () => void;
-    const promise = new Promise<void>((r) => {
-      resolve = r;
-    });
-    return { promise, resolve };
-  }
-
-  private async loop() {
-    while (this.running) {
-      const task = this.queue.shift();
-
-      if (task) {
-        this._lastActiveAt = Date.now();
-
-        try {
-          await Bun.sleep(1000); // Simulate task processing
-
-          console.log(`[Agent ${this.id}] Task success:`, task);
-        } catch (e) {
-          const error = e instanceof Error ? e.message : String(e);
-          console.error(`[Agent ${this.id}] Task fail:`, error);
-        }
-      } else {
-        // QUEUE EMPTY: Wait for the next 'enqueue' signal
-        // This is NOT polling. It is a suspended promise.
-        await this.signal.promise;
-        // Once resolved, reset the signal for the next time the queue gets empty
-        this.signal = this.createSignal();
-      }
-    }
+  /**
+   * Execute a workflow with the given agent context.
+   */
+  async execute<T>(
+    workflowId: string,
+    agentId: string,
+    ctx: AgentContext,
+    initialData?: Partial<T>,
+  ): Promise<WorkflowResult<T>> {
+    const executor = new WorkflowExecutor(agentId, ctx);
+    return executor.run(workflowId, initialData);
   }
 }
