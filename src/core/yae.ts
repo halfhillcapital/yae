@@ -108,7 +108,7 @@ export class Yae {
     const existing = this.userAgents.get(userId);
     if (existing) return existing;
 
-    const agentId = crypto.randomUUID();
+    const agentId = `agent_${userId}`;
     const ctx = await AgentContext.create(agentId, AGENTS_DB_DIR);
     const agent = new UserAgent(agentId, userId, ctx);
 
