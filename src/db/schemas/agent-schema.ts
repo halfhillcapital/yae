@@ -31,7 +31,7 @@ export const workflowRunsTable = table(
   "workflow_runs",
   {
     id: text().primaryKey(),
-    workflowId: text().notNull(),
+    workflow: text().notNull(),
     agentId: text().notNull(),
     status: text().notNull(),
     state: text().notNull(), // JSON serialized

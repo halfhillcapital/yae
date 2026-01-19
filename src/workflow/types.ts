@@ -1,9 +1,9 @@
-import type { Flow } from "@yae/graph/index.ts";
+import type { Flow } from "@yae/graph";
 import type {
   MemoryRepository,
   MessagesRepository,
   FileRepository,
-} from "@yae/db/repositories/index.ts";
+} from "@yae/db/repositories";
 
 /**
  * Shared state object passed through workflow nodes.
@@ -22,7 +22,7 @@ export interface AgentState<T = Record<string, unknown>> {
   /** Runtime info about the current workflow execution */
   readonly run: {
     id: string;
-    workflowId: string;
+    workflow: string;
     startedAt: number;
   };
 }
@@ -34,7 +34,7 @@ export type WorkflowStatus = "pending" | "running" | "completed" | "failed";
  */
 export interface WorkflowRun<T = Record<string, unknown>> {
   id: string;
-  workflowId: string;
+  workflow: string;
   agentId: string;
   status: WorkflowStatus;
   /** Serialized workflow-specific data */
@@ -48,10 +48,8 @@ export interface WorkflowRun<T = Record<string, unknown>> {
 
 /**
  * Definition for a workflow type.
- * Used to register workflows in the registry.
  */
 export interface WorkflowDefinition<T = Record<string, unknown>> {
-  id: string;
   name: string;
   description?: string;
   /**

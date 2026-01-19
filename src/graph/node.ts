@@ -145,9 +145,7 @@ export class BaseNode<S, P = void, E = void> implements GraphNode<S> {
     // 3. Manually "De-reference" the collections that MUST be unique
 
     // Clone the successors Map so the graph structure can diverge
-    if (this.successors instanceof Map) {
-      copy.successors = new Map(this.successors);
-    }
+    copy.successors = new Map(this.successors);
 
     return copy;
   }
@@ -280,7 +278,12 @@ export class ParallelNode<S, P = void, E = void> extends Node<
   }
 
   protected override async _execute(prepResults: P[]): Promise<E[]> {
-    if (!prepResults || !Array.isArray(prepResults)) return [];
+    if (!prepResults || !Array.isArray(prepResults)) {
+      console.warn(
+        "ParallelNode received invalid prepResults, expected an array.",
+      );
+      return [];
+    }
     return (await Promise.all(
       prepResults.map((item) => super._execute(item)),
     )) as E[];

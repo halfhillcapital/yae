@@ -29,9 +29,7 @@ const agentParallel = <T>() => {
  * Configuration for defining a workflow.
  */
 export interface DefineWorkflowConfig<T> {
-  /** Unique workflow identifier */
-  id: string;
-  /** Human-readable name */
+  /** Workflow name */
   name: string;
   /** Optional description */
   description?: string;
@@ -60,8 +58,7 @@ export interface DefineWorkflowConfig<T> {
  *
  * @example
  * const counterWorkflow = defineWorkflow<{ count: number }>({
- *   id: "counter",
- *   name: "Counter Workflow",
+ *   name: "counter",
  *   initialState: () => ({ count: 0 }),
  *   build: ({ node, chain }) => {
  *     const increment = node({
@@ -87,19 +84,11 @@ export interface DefineWorkflowConfig<T> {
  *     return chain(increment, save);
  *   }
  * });
- *
- * // Register explicitly
- * WorkflowRegistry.register(counterWorkflow);
- *
- * @returns The workflow definition (must be registered separately with WorkflowRegistry.register())
  */
 export function defineWorkflow<T>(
   config: DefineWorkflowConfig<T>,
 ): WorkflowDefinition<T> {
   // Validate config
-  if (!config.id || typeof config.id !== "string") {
-    throw new Error("Workflow id must be a non-empty string");
-  }
   if (!config.name || typeof config.name !== "string") {
     throw new Error("Workflow name must be a non-empty string");
   }
@@ -119,11 +108,14 @@ export function defineWorkflow<T>(
   };
 
   const definition: WorkflowDefinition<T> = {
-    id: config.id,
     name: config.name,
     description: config.description,
     create: (initialData?: Partial<T>) => {
-      const initialState = { ...config.initialState(), ...initialData };
+      // Use structuredClone to ensure nested objects are not shared between runs
+      const initialState = structuredClone({
+        ...config.initialState(),
+        ...initialData,
+      });
 
       const graphResult = config.build(helpers);
 
@@ -133,7 +125,7 @@ export function defineWorkflow<T>(
         : graphResult;
 
       const flow = Flow.from(startNode, {
-        name: config.id,
+        name: config.name,
         ...config.flowConfig,
       });
 

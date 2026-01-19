@@ -1,19 +1,10 @@
-import { test, expect, beforeEach } from "bun:test";
+import { test, expect } from "bun:test";
 import { AgentContext } from "@yae/db/context.ts";
-import {
-  defineWorkflow,
-  WorkflowRegistry,
-  WorkflowExecutor,
-} from "@yae/workflow/index.ts";
+import { defineWorkflow, WorkflowExecutor } from "@yae/workflow/index.ts";
 
 function getTestDbPath(): string {
   return ":memory:"; // Use in-memory DB for tests
 }
-
-// Clean up registry before each test
-beforeEach(() => {
-  WorkflowRegistry.clear();
-});
 
 // ============================================================================
 // Workflow Types Tests
@@ -23,8 +14,7 @@ test("AgentState provides access to context and mutable data", async () => {
   type CounterData = { count: number; steps: string[] };
 
   const workflow = defineWorkflow<CounterData>({
-    id: "counter-test",
-    name: "Counter Test",
+    name: "counter-test",
     initialState: () => ({ count: 0, steps: [] }),
     build: ({ node, chain }) => {
       const checkContext = node({
@@ -37,7 +27,7 @@ test("AgentState provides access to context and mutable data", async () => {
           expect(state.data).toBeDefined();
           expect(state.run).toBeDefined();
           expect(state.run.id).toBeDefined();
-          expect(state.run.workflowId).toBe("counter-test");
+          expect(state.run.workflow).toBe("counter-test");
 
           state.data.steps.push("checked");
           return undefined;
@@ -47,87 +37,14 @@ test("AgentState provides access to context and mutable data", async () => {
       return chain(checkContext);
     },
   });
-  WorkflowRegistry.register(workflow);
-
-  expect(WorkflowRegistry.has("counter-test")).toBe(true);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<CounterData>("counter-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.steps).toEqual(["checked"]);
-});
-
-// ============================================================================
-// Workflow Registry Tests
-// ============================================================================
-
-test("WorkflowRegistry registers and retrieves workflows", () => {
-  const workflow = defineWorkflow<{ value: number }>({
-    id: "registry-test",
-    name: "Registry Test",
-    initialState: () => ({ value: 0 }),
-    build: ({ node }) =>
-      node({
-        name: "noop",
-        post: () => undefined,
-      }),
-  });
-  WorkflowRegistry.register(workflow);
-
-  expect(WorkflowRegistry.has("registry-test")).toBe(true);
-  const retrieved = WorkflowRegistry.get("registry-test");
-  expect(WorkflowRegistry.get("registry-test")).toBe(retrieved);
-  expect(WorkflowRegistry.listIds()).toContain("registry-test");
-});
-
-test("WorkflowRegistry throws on duplicate registration", () => {
-  const workflow1 = defineWorkflow<{ value: number }>({
-    id: "duplicate-test",
-    name: "First",
-    initialState: () => ({ value: 0 }),
-    build: ({ node }) =>
-      node({
-        name: "noop",
-        post: () => undefined,
-      }),
-  });
-  WorkflowRegistry.register(workflow1);
-
-  const workflow2 = defineWorkflow<{ value: number }>({
-    id: "duplicate-test",
-    name: "Second",
-    initialState: () => ({ value: 0 }),
-    build: ({ node }) =>
-      node({
-        name: "noop",
-        post: () => undefined,
-      }),
-  });
-
-  expect(() => {
-    WorkflowRegistry.register(workflow2);
-  }).toThrow('Workflow "duplicate-test" is already registered');
-});
-
-test("WorkflowRegistry unregister removes workflow", () => {
-  const workflow = defineWorkflow<{ value: number }>({
-    id: "unregister-test",
-    name: "Unregister Test",
-    initialState: () => ({ value: 0 }),
-    build: ({ node }) =>
-      node({
-        name: "noop",
-        post: () => undefined,
-      }),
-  });
-  WorkflowRegistry.register(workflow);
-
-  expect(WorkflowRegistry.has("unregister-test")).toBe(true);
-  expect(WorkflowRegistry.unregister("unregister-test")).toBe(true);
-  expect(WorkflowRegistry.has("unregister-test")).toBe(false);
 });
 
 // ============================================================================
@@ -143,8 +60,7 @@ test("Workflow node follows prep -> exec -> post pattern", async () => {
   };
 
   const workflow = defineWorkflow<CalcData>({
-    id: "prep-exec-post-test",
-    name: "Prep Exec Post Test",
+    name: "prep-exec-post-test",
     initialState: () => ({ input: 10, multiplier: 3, result: 0, phases: [] }),
     build: ({ node, chain }) => {
       const calculate = node<{ a: number; b: number }, number>({
@@ -170,12 +86,11 @@ test("Workflow node follows prep -> exec -> post pattern", async () => {
       return chain(calculate);
     },
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<CalcData>("prep-exec-post-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.result).toBe(30); // 10 * 3
@@ -189,8 +104,7 @@ test("Workflow parallel node processes items in parallel", async () => {
   };
 
   const workflow = defineWorkflow<BatchData>({
-    id: "parallel-test",
-    name: "Parallel Test",
+    name: "parallel-test",
     initialState: () => ({ items: [1, 2, 3, 4, 5], processed: [] }),
     build: ({ parallel, chain }) => {
       const processItems = parallel<number, number>({
@@ -209,12 +123,11 @@ test("Workflow parallel node processes items in parallel", async () => {
       return chain(processItems);
     },
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<BatchData>("parallel-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.processed).toEqual([2, 4, 6, 8, 10]);
@@ -231,8 +144,7 @@ test("Workflow chains multiple nodes sequentially", async () => {
   };
 
   const workflow = defineWorkflow<PipelineData>({
-    id: "chain-test",
-    name: "Chain Test",
+    name: "chain-test",
     initialState: () => ({ value: "  hello world  ", steps: [] }),
     build: ({ node, chain }) => {
       const trim = node<string, string>({
@@ -271,12 +183,11 @@ test("Workflow chains multiple nodes sequentially", async () => {
       return chain(trim, uppercase, prefix);
     },
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<PipelineData>("chain-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.value).toBe(">>> HELLO WORLD");
@@ -295,8 +206,7 @@ test("Workflow supports conditional branching", async () => {
   };
 
   const workflow = defineWorkflow<OrderData>({
-    id: "branch-test",
-    name: "Branch Test",
+    name: "branch-test",
     initialState: () => ({ amount: 150, status: "pending", path: [] }),
     build: ({ node, chain, branch }) => {
       const router = node({
@@ -342,12 +252,11 @@ test("Workflow supports conditional branching", async () => {
       );
     },
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<OrderData>("branch-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.status).toBe("approved-high");
@@ -366,8 +275,7 @@ test("Workflow can read and write to agent memory", async () => {
   };
 
   const workflow = defineWorkflow<MemoryData>({
-    id: "memory-test",
-    name: "Memory Test",
+    name: "memory-test",
     initialState: () => ({
       key: "test-key",
       value: "test-value",
@@ -398,12 +306,11 @@ test("Workflow can read and write to agent memory", async () => {
       return chain(saveToMemory, readFromMemory);
     },
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<MemoryData>("memory-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.retrieved).toBe("test-value");
@@ -420,8 +327,7 @@ test("Workflow run is persisted to database", async () => {
   type SimpleData = { done: boolean };
 
   const workflow = defineWorkflow<SimpleData>({
-    id: "persistence-test",
-    name: "Persistence Test",
+    name: "persistence-test",
     initialState: () => ({ done: false }),
     build: ({ node }) =>
       node({
@@ -432,12 +338,11 @@ test("Workflow run is persisted to database", async () => {
         },
       }),
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<SimpleData>("persistence-test");
+  const result = await executor.run(workflow);
 
   // Verify run is persisted via ctx.workflows
   const run = await ctx.workflows.get<SimpleData>(result.runId);
@@ -463,8 +368,7 @@ test("Workflow accepts initial data override", async () => {
   };
 
   const workflow = defineWorkflow<ConfigData>({
-    id: "initial-data-test",
-    name: "Initial Data Test",
+    name: "initial-data-test",
     initialState: () => ({ name: "default", count: 0, processed: false }),
     build: ({ node }) =>
       node({
@@ -475,12 +379,11 @@ test("Workflow accepts initial data override", async () => {
         },
       }),
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<ConfigData>("initial-data-test", {
+  const result = await executor.run(workflow, {
     name: "custom",
     count: 42,
   });
@@ -499,8 +402,7 @@ test("Workflow handles node errors gracefully", async () => {
   type ErrorData = { shouldFail: boolean; errorHandled: boolean };
 
   const workflow = defineWorkflow<ErrorData>({
-    id: "error-test",
-    name: "Error Test",
+    name: "error-test",
     initialState: () => ({ shouldFail: true, errorHandled: false }),
     build: ({ node }) =>
       node({
@@ -514,12 +416,11 @@ test("Workflow handles node errors gracefully", async () => {
         },
       }),
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<ErrorData>("error-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.errorHandled).toBe(true);
@@ -529,8 +430,7 @@ test("Workflow fails when error is not handled", async () => {
   type FailData = { value: number };
 
   const workflow = defineWorkflow<FailData>({
-    id: "unhandled-error-test",
-    name: "Unhandled Error Test",
+    name: "unhandled-error-test",
     initialState: () => ({ value: 0 }),
     build: ({ node }) =>
       node({
@@ -541,15 +441,14 @@ test("Workflow fails when error is not handled", async () => {
         // No onError handler
       }),
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<FailData>("unhandled-error-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("failed");
-  expect(result.error).toBe("Unhandled failure");
+  expect(result.error).toContain("Unhandled failure");
 });
 
 // ============================================================================
@@ -560,8 +459,7 @@ test("Workflow tracks execution duration", async () => {
   type TimedData = { delay: number };
 
   const workflow = defineWorkflow<TimedData>({
-    id: "duration-test",
-    name: "Duration Test",
+    name: "duration-test",
     initialState: () => ({ delay: 50 }),
     build: ({ node }) =>
       node({
@@ -571,12 +469,11 @@ test("Workflow tracks execution duration", async () => {
         },
       }),
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<TimedData>("duration-test");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.duration).toBeGreaterThanOrEqual(50);
@@ -597,8 +494,7 @@ test("Complex workflow: multi-step data processing pipeline", async () => {
   };
 
   const workflow = defineWorkflow<ProcessingData>({
-    id: "complex-pipeline",
-    name: "Complex Processing Pipeline",
+    name: "complex-pipeline",
     initialState: () => ({
       rawInput: '{"name": "test", "value": 42}',
       parsed: null,
@@ -688,12 +584,11 @@ test("Complex workflow: multi-step data processing pipeline", async () => {
       return parse;
     },
   });
-  WorkflowRegistry.register(workflow);
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
   const executor = new WorkflowExecutor("test-agent", ctx);
 
-  const result = await executor.run<ProcessingData>("complex-pipeline");
+  const result = await executor.run(workflow);
 
   expect(result.status).toBe("completed");
   expect(result.state.parsed).toEqual({ name: "test", value: 42 });

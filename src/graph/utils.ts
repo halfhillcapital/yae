@@ -42,7 +42,7 @@ export const parallel = <S>() => {
  * - GraphNode: connects directly
  * - Branch: connects to entry, continues from exit
  */
-function ouroboros<S>(...items: Chainable<S>[]): {
+function linkChainables<S>(...items: Chainable<S>[]): {
   first: GraphNode<S>;
   last: GraphNode<S>;
 } {
@@ -57,33 +57,19 @@ function ouroboros<S>(...items: Chainable<S>[]): {
       : { entry: item, exit: item };
 
   for (let i = 0; i < items.length - 1; i++) {
-    const current = items[i];
-    const next = items[i + 1];
-
-    if (!current || !next)
-      throw new Error("Unexpected undefined node in chain");
-
-    const currentPoints = getPoints(current);
-    const nextPoints = getPoints(next);
-
+    const currentPoints = getPoints(items[i]!);
+    const nextPoints = getPoints(items[i + 1]!);
     currentPoints.exit.to(nextPoints.entry);
   }
 
-  const firstItem = items[0];
-  const lastItem = items[items.length - 1];
-
-  if (!firstItem || !lastItem) {
-    throw new Error("Unexpected undefined first or last node");
-  }
-
   return {
-    first: getPoints(firstItem).entry,
-    last: getPoints(lastItem).exit,
+    first: getPoints(items[0]!).entry,
+    last: getPoints(items[items.length - 1]!).exit,
   };
 }
 
 export function chain<S>(...items: Chainable<S>[]): GraphNode<S> {
-  const { first } = ouroboros<S>(...items);
+  const { first } = linkChainables<S>(...items);
   return first;
 }
 
@@ -123,7 +109,7 @@ export function branch<S, K extends string>(
     if (nodes.length === 0) {
       throw new Error(`branch() route "${action}" cannot be empty`);
     }
-    const { first, last } = ouroboros<S>(...nodes);
+    const { first, last } = linkChainables<S>(...nodes);
     router.when(action, first);
     last.to(exit);
   }

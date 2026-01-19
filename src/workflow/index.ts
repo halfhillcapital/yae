@@ -7,9 +7,6 @@ export type {
   WorkflowResult,
 } from "./types.ts";
 
-// Registry
-export { WorkflowRegistry } from "./registry.ts";
-
 // Executor
 export { WorkflowExecutor } from "./executor.ts";
 

@@ -1,5 +1,9 @@
 import { type AgentContext } from "@yae/db/index.ts";
-import { WorkflowExecutor, type WorkflowResult } from "@yae/workflow/index.ts";
+import {
+  WorkflowExecutor,
+  type WorkflowDefinition,
+  type WorkflowResult,
+} from "@yae/workflow/index.ts";
 import { Yae } from "./yae.ts";
 
 export class UserAgent {
@@ -29,17 +33,17 @@ export class UserAgent {
    * Execute a workflow by checking out a worker from the pool.
    */
   async runWorkflow<T>(
-    workflowId: string,
+    workflow: WorkflowDefinition<T>,
     data?: Partial<T>,
   ): Promise<WorkflowResult<T>> {
     const yae = Yae.getInstance();
-    const worker = yae.checkoutWorker(this.id, workflowId);
+    const worker = yae.checkoutWorker(this.id, workflow.id);
     if (!worker) {
       throw new Error("No workers available in pool");
     }
 
     try {
-      return await worker.execute<T>(workflowId, this.id, this.ctx, data);
+      return await worker.execute(workflow, this.id, this.ctx, data);
     } finally {
       yae.returnWorker(worker.id);
     }
@@ -61,12 +65,12 @@ export class WorkerAgent {
    * Execute a workflow with the given agent context.
    */
   async execute<T>(
-    workflowId: string,
+    workflow: WorkflowDefinition<T>,
     agentId: string,
     ctx: AgentContext,
     initialData?: Partial<T>,
   ): Promise<WorkflowResult<T>> {
     const executor = new WorkflowExecutor(agentId, ctx);
-    return executor.run(workflowId, initialData);
+    return executor.run(workflow, initialData);
   }
 }

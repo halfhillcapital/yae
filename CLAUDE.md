@@ -164,11 +164,11 @@ yae.memory.get("label");
 
 ```ts
 // UserAgent checks out a worker from the pool, executes, then returns it
-const result = await agent.runWorkflow<MyData>("my-workflow", { input: "data" });
+const result = await agent.runWorkflow(myWorkflow, { input: "data" });
 // Throws "No workers available in pool" if pool is exhausted
 
 // WorkerAgent.execute() is called internally with the agent's context
-worker.execute<MyData>(workflowId, agentId, ctx, initialData);
+worker.execute(workflow, agentId, ctx, initialData);
 ```
 
 **Database:** `./data/agents/agent_{id}.db` (memory + messages + workflow_runs tables)
@@ -180,20 +180,20 @@ The workflow system executes graph-based flows with agent context access.
 **File structure:**
 
 - `types.ts` - Type definitions (`AgentState`, `WorkflowDefinition`, `WorkflowResult`, `WorkflowRun`)
-- `registry.ts` - Singleton workflow registry
 - `executor.ts` - WorkflowExecutor class
 - `utils.ts` - `defineWorkflow()` helper
 - `index.ts` - Barrel export
 
-**WorkflowRegistry** (singleton): Register workflows before execution.
+**Defining and running workflows:**
+
+Workflows are defined with `defineWorkflow()` and passed directly to the executor for type-safe execution:
 
 ```ts
-import { defineWorkflow, WorkflowRegistry } from "@yae/workflow";
+import { defineWorkflow, WorkflowExecutor } from "@yae/workflow";
 
 // Define a workflow
 const myWorkflow = defineWorkflow<{ count: number }>({
-  id: "my-workflow",
-  name: "My Workflow",
+  name: "my-workflow",
   initialState: () => ({ count: 0 }),
   build: ({ node, chain }) => {
     const increment = node({
@@ -207,30 +207,10 @@ const myWorkflow = defineWorkflow<{ count: number }>({
   },
 });
 
-// Register explicitly
-WorkflowRegistry.register(myWorkflow);
-
-// Check/list workflows
-WorkflowRegistry.has("my-workflow");
-WorkflowRegistry.list();
-WorkflowRegistry.listIds();
-```
-
-**WorkflowExecutor**: Manages workflow lifecycle.
-
-```ts
+// Execute directly - type T is inferred from the workflow definition
 const executor = new WorkflowExecutor(agentId, ctx);
-
-// Run a workflow
-const result = await executor.run<MyData>("my-workflow", { input: "value" });
-// result: { runId, status, finalAction, state, duration, error? }
-
-// Cancel a running workflow
-await executor.cancel(runId);
-
-// Query history
-const runs = await executor.history<MyData>(50);
-const run = await executor.getRun<MyData>(runId);
+const result = await executor.run(myWorkflow, { count: 10 });
+// result: { runId, status, state, duration, error? }
 ```
 
 **AgentState\<T\>**: Shared state passed through workflow nodes.
@@ -243,7 +223,7 @@ interface AgentState<T> {
   data: T;                             // Workflow-specific data (mutable)
   readonly run: {                      // Runtime info
     id: string;
-    workflowId: string;
+    workflow: string;
     startedAt: number;
   };
 }
@@ -255,8 +235,7 @@ The `build` function receives helpers (`node`, `parallel`, `chain`, `branch`) pr
 
 ```ts
 const workflow = defineWorkflow<{ items: string[]; count: number }>({
-  id: "example",
-  name: "Example Workflow",
+  name: "example",
   initialState: () => ({ items: [], count: 0 }),
   build: ({ node, parallel, chain, branch }) => {
     // node() and parallel() create nodes that work with AgentState
@@ -273,7 +252,6 @@ const workflow = defineWorkflow<{ items: string[]; count: number }>({
     return chain(count);
   },
 });
-WorkflowRegistry.register(workflow);
 ```
 
 ### Database (`src/db/`)

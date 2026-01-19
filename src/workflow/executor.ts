@@ -1,8 +1,8 @@
 import type { AgentContext } from "@yae/db/context.ts";
-import { Flow } from "@yae/graph/flow.ts";
-import { WorkflowRegistry } from "./registry.ts";
+import type { Flow } from "@yae/graph/flow.ts";
 import type {
   AgentState,
+  WorkflowDefinition,
   WorkflowRun,
   WorkflowResult,
   WorkflowStatus,
@@ -22,23 +22,17 @@ export class WorkflowExecutor {
    * Start a new workflow execution.
    */
   async run<T>(
-    workflowId: string,
+    workflow: WorkflowDefinition<T>,
     initialData?: Partial<T>,
   ): Promise<WorkflowResult<T>> {
-    const definition = WorkflowRegistry.get<T>(workflowId);
-    if (!definition) {
-      throw new Error(`Workflow "${workflowId}" not found in registry`);
-    }
-
     const runId = crypto.randomUUID();
     const startedAt = Date.now();
 
-    const { flow, initialState } = definition.create(initialData);
-    const state: T = { ...initialState, ...initialData };
+    const { flow, initialState: state } = workflow.create(initialData);
 
     const run: WorkflowRun<T> = {
       id: runId,
-      workflowId,
+      workflow: workflow.name,
       agentId: this.agentId,
       status: "running",
       state,
@@ -67,7 +61,7 @@ export class WorkflowExecutor {
       data: state,
       run: {
         id: runId,
-        workflowId: flow.name ?? "unknown",
+        workflow: flow.name ?? "unknown",
         startedAt,
       },
     };
@@ -80,7 +74,8 @@ export class WorkflowExecutor {
         completedAt: Date.now(),
       });
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error =
+        err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
       finalStatus = "failed";
       await this.ctx.workflows.update(runId, {
         status: "failed",

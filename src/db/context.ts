@@ -39,10 +39,7 @@ export class AgentContext {
     this.workflows = new WorkflowRepository(db);
   }
 
-  static async create(
-    agentId: string,
-    dbPath: string,
-  ): Promise<AgentContext> {
+  static async create(agentId: string, dbPath: string): Promise<AgentContext> {
     const inMemory = dbPath === ":memory:";
     const path = inMemory ? dbPath : `${dbPath}/${agentId}.db`;
 
@@ -58,7 +55,17 @@ export class AgentContext {
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: "./drizzle/agent" });
 
-    return new AgentContext(agentId, db, fs);
+    const ctx = new AgentContext(agentId, db, fs);
+
+    // Clean up any workflows left "running" from a previous crash/restart
+    const failed = await ctx.workflows.markStaleAsFailed();
+    if (failed > 0) {
+      console.log(
+        `[AgentContext] Marked ${failed} stale workflow(s) as failed for agent ${agentId}`,
+      );
+    }
+
+    return ctx;
   }
 }
 

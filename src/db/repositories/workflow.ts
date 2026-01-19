@@ -9,7 +9,7 @@ export class WorkflowRepository {
   async create<T>(run: WorkflowRun<T>): Promise<void> {
     await this.db.insert(workflowRunsTable).values({
       id: run.id,
-      workflowId: run.workflowId,
+      workflow: run.workflow,
       agentId: run.agentId,
       status: run.status,
       state: JSON.stringify(run.state),
@@ -85,9 +85,28 @@ export class WorkflowRepository {
     return rows.map((row) => this.toWorkflowRun<T>(row));
   }
 
+  /**
+   * Mark all "running" workflows as "failed".
+   * Called on startup to clean up workflows that were interrupted by a crash/restart.
+   * @returns Number of workflows marked as failed
+   */
+  async markStaleAsFailed(): Promise<number> {
+    const result = await this.db
+      .update(workflowRunsTable)
+      .set({
+        status: "failed",
+        completedAt: Date.now(),
+        updatedAt: Date.now(),
+        error: "Workflow interrupted by server restart",
+      })
+      .where(eq(workflowRunsTable.status, "running"));
+
+    return result.rowsAffected;
+  }
+
   private toWorkflowRun<T>(row: {
     id: string;
-    workflowId: string;
+    workflow: string;
     agentId: string;
     status: string;
     state: string;
@@ -98,7 +117,7 @@ export class WorkflowRepository {
   }): WorkflowRun<T> {
     return {
       id: row.id,
-      workflowId: row.workflowId,
+      workflow: row.workflow,
       agentId: row.agentId,
       status: row.status as WorkflowStatus,
       state: JSON.parse(row.state) as T,
