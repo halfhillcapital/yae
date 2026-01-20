@@ -43,6 +43,8 @@ export class UserAgent {
     }
 
     try {
+      worker.currentOwner = this.id;
+      worker.currentWorkflow = workflow.name;
       return await worker.execute(workflow, this.id, this.ctx, data);
     } finally {
       yae.returnWorker(worker.id);
@@ -57,6 +59,7 @@ export class UserAgent {
 export class WorkerAgent {
   // Checkout metadata (set by Yae on checkout, cleared on return)
   currentOwner: string | null = null;
+  currentWorkflow: string | null = null;
 
   constructor(public readonly id: string) {}
 

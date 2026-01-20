@@ -69,7 +69,8 @@ export class Yae {
     const worker = this.availableWorkers.pop();
     if (!worker) return null;
 
-    worker.currentOwner = agentId;
+    console.log(`[Yae] Worker ${worker.id} checked out by agent ${agentId}.`);
+
     this.busyWorkers.set(worker.id, worker);
     return worker;
   }
@@ -78,9 +79,10 @@ export class Yae {
     const worker = this.busyWorkers.get(workerId);
     if (worker) {
       console.log(
-        `[Yae] Worker ${worker.id} returned by agent ${worker.currentOwner}.`,
+        `[Yae] Worker ${worker.id} returned by agent ${worker.currentOwner}. Completed workflow: ${worker.currentWorkflow}`,
       );
       worker.currentOwner = null;
+      worker.currentWorkflow = null;
       this.busyWorkers.delete(workerId);
       this.availableWorkers.push(worker);
     }
