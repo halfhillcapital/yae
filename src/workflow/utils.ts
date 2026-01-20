@@ -10,14 +10,14 @@ import type { GraphNode, Chainable } from "@yae/graph/types.ts";
 import type { AgentState, WorkflowDefinition } from "./types.ts";
 
 /** Curried factory for creating nodes that operate on AgentState. */
-const agentNode = <T>() => {
+export const workflowNode = <T>() => {
   return <P = void, E = void>(config: NodeConfig<AgentState<T>, P, E>) => {
     return new Node<AgentState<T>, P, E>(config);
   };
 };
 
 /** Curried factory for creating parallel nodes that operate on AgentState. */
-const agentParallel = <T>() => {
+export const workflowParallel = <T>() => {
   return <P = void, E = void>(
     config: ParallelNodeConfig<AgentState<T>, P, E>,
   ) => {
@@ -41,9 +41,9 @@ export interface DefineWorkflowConfig<T> {
    */
   build: (helpers: {
     /** Curried node factory pre-bound to AgentState<T> */
-    node: ReturnType<typeof agentNode<T>>;
+    node: ReturnType<typeof workflowNode<T>>;
     /** Curried parallel node factory pre-bound to AgentState<T> */
-    parallel: ReturnType<typeof agentParallel<T>>;
+    parallel: ReturnType<typeof workflowParallel<T>>;
     /** Chain utility for linking nodes */
     chain: typeof chain;
     /** Branch utility for conditional routing */
@@ -101,8 +101,8 @@ export function defineWorkflow<T>(
 
   // Pre-build helpers (stateless, can be shared)
   const helpers = {
-    node: agentNode<T>(),
-    parallel: agentParallel<T>(),
+    node: workflowNode<T>(),
+    parallel: workflowParallel<T>(),
     chain,
     branch,
   };
@@ -134,4 +134,65 @@ export function defineWorkflow<T>(
   };
 
   return definition;
+}
+
+/**
+ * Configuration for creating a workflow from a flow factory.
+ */
+export interface CreateWorkflowConfig<T> {
+  /** Workflow name */
+  name: string;
+  /** Optional description */
+  description?: string;
+  /** Factory function for the initial state */
+  initialState: () => T;
+  /** Factory function that creates the flow */
+  flow: () => Flow<AgentState<T>>;
+}
+
+/**
+ * Create a workflow from a flow factory.
+ * Use this when you want to define nodes separately and compose them freely.
+ *
+ * @example
+ * const node = workflowNode<{ count: number }>();
+ *
+ * const increment = node({
+ *   name: "increment",
+ *   post: (state) => {
+ *     state.data.count++;
+ *     return undefined;
+ *   }
+ * });
+ *
+ * const workflow = createWorkflow({
+ *   name: "counter",
+ *   initialState: () => ({ count: 0 }),
+ *   flow: () => Flow.from(increment),
+ * });
+ */
+export function createWorkflow<T>(
+  config: CreateWorkflowConfig<T>,
+): WorkflowDefinition<T> {
+  if (!config.name || typeof config.name !== "string") {
+    throw new Error("Workflow name must be a non-empty string");
+  }
+  if (typeof config.flow !== "function") {
+    throw new Error("Workflow flow must be a factory function");
+  }
+  if (typeof config.initialState !== "function") {
+    throw new Error("Workflow initialState must be a function");
+  }
+
+  return {
+    name: config.name,
+    description: config.description,
+    create: (initialData?: Partial<T>) => ({
+      flow: config.flow(),
+      initialState: structuredClone({
+        ...config.initialState(),
+        ...initialData,
+      }),
+    }),
+  };
 }

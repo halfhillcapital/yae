@@ -181,7 +181,7 @@ The workflow system executes graph-based flows with agent context access.
 
 - `types.ts` - Type definitions (`AgentState`, `WorkflowDefinition`, `WorkflowResult`, `WorkflowRun`)
 - `executor.ts` - WorkflowExecutor class
-- `utils.ts` - `defineWorkflow()` helper
+- `utils.ts` - `defineWorkflow()`, `createWorkflow()`, `workflowNode()`, `workflowParallel()`
 - `index.ts` - Barrel export
 
 **Defining and running workflows:**
@@ -229,7 +229,12 @@ interface AgentState<T> {
 }
 ```
 
-**`defineWorkflow()` helper** (in `utils.ts`):
+**Two ways to define workflows:**
+
+1. **`defineWorkflow()`** - Self-contained, build graph inline with provided helpers
+2. **`createWorkflow()`** - Composable, define nodes separately and pass a flow factory
+
+**`defineWorkflow()` helper:**
 
 The `build` function receives helpers (`node`, `parallel`, `chain`, `branch`) pre-bound to `AgentState<T>`:
 
@@ -251,6 +256,35 @@ const workflow = defineWorkflow<{ items: string[]; count: number }>({
     // chain() and branch() work the same as in @yae/graph
     return chain(count);
   },
+});
+```
+
+**`createWorkflow()` + `workflowNode()` for composable workflows:**
+
+Use `workflowNode<T>()` and `workflowParallel<T>()` to define nodes separately, then compose with standard graph utilities:
+
+```ts
+import { workflowNode, createWorkflow } from "@yae/workflow";
+import { Flow, chain } from "@yae/graph";
+
+// Define nodes separately - can be reused, tested, composed
+const node = workflowNode<{ count: number }>();
+
+const increment = node({
+  name: "increment",
+  post: (s) => { s.data.count++; return undefined; },
+});
+
+const log = node({
+  name: "log",
+  post: (s) => { console.log(s.data.count); return undefined; },
+});
+
+// Pass a flow factory - full control over graph construction
+const workflow = createWorkflow({
+  name: "counter",
+  initialState: () => ({ count: 0 }),
+  flow: () => Flow.from(chain(increment, log)),
 });
 ```
 

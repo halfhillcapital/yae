@@ -11,5 +11,10 @@ export type {
 export { WorkflowExecutor } from "./executor.ts";
 
 // Utilities
-export { defineWorkflow } from "./utils.ts";
-export type { DefineWorkflowConfig } from "./utils.ts";
+export {
+  defineWorkflow,
+  createWorkflow,
+  workflowNode,
+  workflowParallel,
+} from "./utils.ts";
+export type { DefineWorkflowConfig, CreateWorkflowConfig } from "./utils.ts";
