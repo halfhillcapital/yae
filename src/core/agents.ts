@@ -1,9 +1,9 @@
 import { type AgentContext } from "@yae/db/index.ts";
 import {
-  WorkflowExecutor,
+  runWorkflow,
   type WorkflowDefinition,
   type WorkflowResult,
-} from "@yae/workflow/index.ts";
+} from "./workflows/index.ts";
 import { Yae } from "./yae.ts";
 
 export class UserAgent {
@@ -72,7 +72,6 @@ export class WorkerAgent {
     ctx: AgentContext,
     initialData?: Partial<T>,
   ): Promise<WorkflowResult<T>> {
-    const executor = new WorkflowExecutor(agentId, ctx);
-    return executor.run(workflow, initialData);
+    return runWorkflow(workflow, agentId, ctx, initialData);
   }
 }

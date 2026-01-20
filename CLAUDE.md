@@ -173,23 +173,21 @@ worker.execute(workflow, agentId, ctx, initialData);
 
 **Database:** `./data/agents/agent_{id}.db` (memory + messages + workflow_runs tables)
 
-### Workflows (`src/workflow/`)
+### Workflows (`src/core/workflows/`)
 
 The workflow system executes graph-based flows with agent context access.
 
 **File structure:**
 
-- `types.ts` - Type definitions (`AgentState`, `WorkflowDefinition`, `WorkflowResult`, `WorkflowRun`)
-- `executor.ts` - WorkflowExecutor class
-- `utils.ts` - `defineWorkflow()`, `createWorkflow()`, `workflowNode()`, `workflowParallel()`
-- `index.ts` - Barrel export
+- `index.ts` - Types, utilities (`defineWorkflow`, `createWorkflow`, `workflowNode`, `workflowParallel`), and `runWorkflow`
+- `definitions/` - User-defined workflow files (planned)
 
 **Defining and running workflows:**
 
-Workflows are defined with `defineWorkflow()` and passed directly to the executor for type-safe execution:
+Workflows are defined with `defineWorkflow()` or `createWorkflow()` and executed with `runWorkflow()`:
 
 ```ts
-import { defineWorkflow, WorkflowExecutor } from "@yae/workflow";
+import { defineWorkflow, runWorkflow } from "@yae/core/workflows";
 
 // Define a workflow
 const myWorkflow = defineWorkflow<{ count: number }>({
@@ -207,9 +205,8 @@ const myWorkflow = defineWorkflow<{ count: number }>({
   },
 });
 
-// Execute directly - type T is inferred from the workflow definition
-const executor = new WorkflowExecutor(agentId, ctx);
-const result = await executor.run(myWorkflow, { count: 10 });
+// Execute directly
+const result = await runWorkflow(myWorkflow, agentId, ctx, { count: 10 });
 // result: { runId, status, state, duration, error? }
 ```
 
@@ -264,7 +261,7 @@ const workflow = defineWorkflow<{ items: string[]; count: number }>({
 Use `workflowNode<T>()` and `workflowParallel<T>()` to define nodes separately, then compose with standard graph utilities:
 
 ```ts
-import { workflowNode, createWorkflow } from "@yae/workflow";
+import { workflowNode, createWorkflow } from "@yae/core/workflows";
 import { Flow, chain } from "@yae/graph";
 
 // Define nodes separately - can be reused, tested, composed

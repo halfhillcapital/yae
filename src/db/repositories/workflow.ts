@@ -1,7 +1,7 @@
 import { eq, desc, and } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/libsql";
 import { workflowRunsTable } from "../schemas/agent-schema.ts";
-import type { WorkflowRun, WorkflowStatus } from "@yae/workflow/types.ts";
+import type { WorkflowRun, WorkflowStatus } from "@yae/core/workflows/index.ts";
 
 export class WorkflowRepository {
   constructor(private readonly db: ReturnType<typeof drizzle>) {}
