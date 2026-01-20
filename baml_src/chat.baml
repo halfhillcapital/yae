@@ -1,5 +1,5 @@
 class Message {
-  role "user" | "assistant" | "system"
+  role "user" | "assistant" | "system" | "tool"
   content string
 }
 
@@ -9,7 +9,13 @@ class MemoryBlock {
   content string
 }
 
-function ChatWithAgentContext(memories: MemoryBlock[], files: string, messages: Message[]) -> string {
+class ChatContext {
+  memories MemoryBlock[]
+  files string
+  messages Message[]
+}
+
+function Chat(context: ChatContext) -> string {
   client "OpenRouter"
   prompt #"
     # IDENTITY
@@ -22,7 +28,7 @@ function ChatWithAgentContext(memories: MemoryBlock[], files: string, messages: 
 
     These blocks are currently in your active attention:
     <Memory>
-    {% for memory in memories %}
+    {% for memory in context.memories %}
       <Block label="{{ memory.label }}">
         <Description>{{ memory.description }}</Description>
         <Content>{{ memory.content }}</Content>
@@ -32,10 +38,10 @@ function ChatWithAgentContext(memories: MemoryBlock[], files: string, messages: 
 
     The following files exist in your long-term storage. You must use 'cat' to read their contents if they are relevant:
     <VFS>
-    {{ files }}
+    {{ context.files }}
     </VFS>
 
-    {% for message in messages %}
+    {% for message in context.messages %}
       {{ _.role(message.role) }} 
       {{ message.content }}
     {% endfor %}

@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
 import { Yae } from "@yae/core";
 import { adminAuth, userAuth } from "./middleware";
-import { b, type Message } from "baml_client";
+import { b, type Message, type ChatContext } from "baml_client";
 
 export const routes = new Elysia()
   // Rate limiting: 10 requests per 60 seconds per IP
@@ -83,11 +83,13 @@ export const routes = new Elysia()
       const userMessage: Message = { role: "user", content: body.message };
       await agent.messages.save(userMessage);
 
-      const memories = agent.memory.getAll();
-      const files = await agent.files.getFileTree("/");
-      const conversation = agent.messages.getAll();
+      const chatContext: ChatContext = {
+        memories: agent.memory.getAll(),
+        files: await agent.files.getFileTree("/"),
+        messages: agent.messages.getAll(),
+      };
 
-      const response = await b.ChatWithAgentContext(memories, files, conversation);
+      const response = await b.Chat(chatContext);
       const agentMessage: Message = { role: "assistant", content: response };
       await agent.messages.save(agentMessage);
 
