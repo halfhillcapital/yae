@@ -1,5 +1,12 @@
 import { test, expect } from "bun:test";
-import { BaseNode, Flow, branch, chain, node, sequential } from "@yae/graph";
+import {
+  BaseNode,
+  Flow,
+  branch,
+  chain,
+  createNodes,
+  sequential,
+} from "@yae/graph";
 
 type TestState = {
   value: number;
@@ -168,7 +175,9 @@ test("branch with typed node factory", async () => {
 
   const shared: CalcState = { input: 15, output: 0, path: "" };
 
-  const router = node<CalcState>()({
+  const { node } = createNodes<CalcState>();
+
+  const router = node({
     name: "Router",
     prep: (s) => s.input,
     exec: (input) => (input > 10 ? "big" : "small"),
@@ -178,7 +187,7 @@ test("branch with typed node factory", async () => {
     },
   });
 
-  const bigCalc = node<CalcState>()({
+  const bigCalc = node({
     name: "Big Calc",
     prep: (s) => s.input,
     exec: (input) => input * 10,
@@ -188,7 +197,7 @@ test("branch with typed node factory", async () => {
     },
   });
 
-  const smallCalc = node<CalcState>()({
+  const smallCalc = node({
     name: "Small Calc",
     prep: (s) => s.input,
     exec: (input) => input * 2,

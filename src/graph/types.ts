@@ -28,3 +28,11 @@ export function isBranch<S>(item: Chainable<S>): item is Branch<S> {
 
 export type Action = string;
 export type NextAction = Action | undefined;
+
+/** Configuration for retry behavior on node execution failures. */
+export type RetryConfig = {
+  maxAttempts: number;
+  delay?: number; // milliseconds
+  backoff?: "linear" | "exponential";
+  onRetry?: (attempt: number, error: Error) => Promise<void> | void;
+};

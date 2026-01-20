@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { BaseNode, Node, Flow, node, chain, branch } from "@yae/graph";
+import { BaseNode, Node, Flow, createNodes, chain, branch } from "@yae/graph";
 
 type TestState = {
   value: number;
@@ -1064,7 +1064,9 @@ test("Pipeline: Validate and route based on result", async () => {
     errors: [],
   };
 
-  const validateOrder = node<OrderState>()({
+  const { node } = createNodes<OrderState>();
+
+  const validateOrder = node({
     name: "Validate Order",
     prep: (s) => ({
       total: s.total,
@@ -1120,8 +1122,10 @@ test("Pipeline: Multi-step data processing", async () => {
     saved: false,
   };
 
+  const { node } = createNodes<UserState>();
+
   // Step 1: Parse raw input
-  const parseInput = node<UserState>()({
+  const parseInput = node({
     name: "Parse Input",
     prep: (s) => s.rawInput,
     exec: (raw) => JSON.parse(raw) as { email: string; age: number },
@@ -1132,7 +1136,7 @@ test("Pipeline: Multi-step data processing", async () => {
   });
 
   // Step 2: Validate parsed data
-  const validateData = node<UserState>()({
+  const validateData = node({
     name: "Validate Data",
     prep: (s) => s.parsedData,
     exec: (data) => {
@@ -1150,7 +1154,7 @@ test("Pipeline: Multi-step data processing", async () => {
   });
 
   // Step 3: Save (only reached if valid)
-  const saveData = node<UserState>()({
+  const saveData = node({
     name: "Save Data",
     prep: (s) => s.parsedData,
     exec: () => {
@@ -1194,10 +1198,12 @@ test("Pipeline: exec is pure and isolated from shared state", async () => {
     result: null,
   };
 
+  const { node } = createNodes<MathState>();
+
   // Track if exec tried to access shared (it shouldn't)
   let execReceivedCorrectInput = false;
 
-  const compute = node<MathState>()({
+  const compute = node({
     name: "Compute",
     prep: (s) => ({
       x: s.a,
@@ -1245,7 +1251,9 @@ test("Pipeline: post receives both prepResult and execResult", async () => {
     audit: null,
   };
 
-  const transform = node<AuditState>()({
+  const { node } = createNodes<AuditState>();
+
+  const transform = node({
     name: "Transform with Audit",
     prep: (s) => ({ value: s.input, multiplier: 3 }),
     exec: (prep) => prep.value * prep.multiplier,
@@ -1284,8 +1292,10 @@ test("Pipeline: chained transformations with data flowing through", async () => 
     final: "",
   };
 
+  const { node } = createNodes<PipelineState>();
+
   // Step 1: Trim whitespace
-  const trim = node<PipelineState>()({
+  const trim = node({
     name: "Trim",
     prep: (s) => s.raw,
     exec: (input) => input.trim(),
@@ -1297,7 +1307,7 @@ test("Pipeline: chained transformations with data flowing through", async () => 
   });
 
   // Step 2: Uppercase
-  const uppercase = node<PipelineState>()({
+  const uppercase = node({
     name: "Uppercase",
     prep: (s) => s.raw,
     exec: (input) => input.toUpperCase(),
@@ -1309,7 +1319,7 @@ test("Pipeline: chained transformations with data flowing through", async () => 
   });
 
   // Step 3: Add prefix
-  const prefix = node<PipelineState>()({
+  const prefix = node({
     name: "Prefix",
     prep: (s) => s.raw,
     exec: (input) => `>>> ${input}`,
@@ -1339,8 +1349,10 @@ test("Pipeline: chained transformations with branching", async () => {
     final: "",
   };
 
+  const { node } = createNodes<PipelineState>();
+
   // Step 1: Trim whitespace
-  const trim = node<PipelineState>()({
+  const trim = node({
     name: "Trim",
     prep: (s) => s.raw,
     exec: (input) => input.trim(),
@@ -1351,7 +1363,7 @@ test("Pipeline: chained transformations with branching", async () => {
     },
   });
 
-  const router = node<PipelineState>()({
+  const router = node({
     name: "router",
     post: (_s, _prep, _result) => {
       return "lowercase";
@@ -1359,7 +1371,7 @@ test("Pipeline: chained transformations with branching", async () => {
   });
 
   // Step A2: Uppercase
-  const uppercase = node<PipelineState>()({
+  const uppercase = node({
     name: "Uppercase",
     prep: (s) => s.raw,
     exec: (input) => input.toUpperCase(),
@@ -1371,7 +1383,7 @@ test("Pipeline: chained transformations with branching", async () => {
   });
 
   // Step B2: Uppercase
-  const lowercase = node<PipelineState>()({
+  const lowercase = node({
     name: "Lowercase",
     prep: (s) => s.raw,
     exec: (input) => input.toLowerCase(),
@@ -1383,7 +1395,7 @@ test("Pipeline: chained transformations with branching", async () => {
   });
 
   // Step 3: Add prefix
-  const prefix = node<PipelineState>()({
+  const prefix = node({
     name: "Prefix",
     prep: (s) => s.raw,
     exec: (input) => `>>> ${input}`,
@@ -1419,8 +1431,10 @@ test("Pipeline: chained transformations with branching", async () => {
     final: "",
   };
 
+  const { node } = createNodes<PipelineState>();
+
   // Step 1: Trim whitespace
-  const trim = node<PipelineState>()({
+  const trim = node({
     name: "Trim",
     prep: (s) => s.raw,
     exec: (input) => input.trim(),
@@ -1431,7 +1445,7 @@ test("Pipeline: chained transformations with branching", async () => {
     },
   });
 
-  const router = node<PipelineState>()({
+  const router = node({
     name: "router",
     post: (_s, _prep, _result) => {
       return "lowercase";
@@ -1439,7 +1453,7 @@ test("Pipeline: chained transformations with branching", async () => {
   });
 
   // Step A2: Uppercase
-  const uppercase = node<PipelineState>()({
+  const uppercase = node({
     name: "Uppercase",
     prep: (s) => s.raw,
     exec: (input) => input.toUpperCase(),
@@ -1451,7 +1465,7 @@ test("Pipeline: chained transformations with branching", async () => {
   });
 
   // Step B2: Uppercase
-  const lowercase = node<PipelineState>()({
+  const lowercase = node({
     name: "Lowercase",
     prep: (s) => s.raw,
     exec: (input) => input.toLowerCase(),
@@ -1463,7 +1477,7 @@ test("Pipeline: chained transformations with branching", async () => {
   });
 
   // Step C2: Chaos
-  const chaoscase = node<PipelineState>()({
+  const chaoscase = node({
     name: "Chaoscase",
     prep: (_s) => 5,
     exec: (input) => input * 5,
@@ -1474,7 +1488,7 @@ test("Pipeline: chained transformations with branching", async () => {
   });
 
   // Step 3: Add prefix
-  const prefix = node<PipelineState>()({
+  const prefix = node({
     name: "Prefix",
     prep: (s) => s.raw,
     exec: (input) => `>>> ${input}`,

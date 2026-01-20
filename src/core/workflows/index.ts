@@ -9,14 +9,8 @@ import type {
   MessagesRepository,
   FileRepository,
 } from "@yae/db/repositories";
-import {
-  Node,
-  ParallelNode,
-  type NodeConfig,
-  type ParallelNodeConfig,
-} from "@yae/graph/node.ts";
 import { Flow as FlowClass, type FlowConfig } from "@yae/graph/flow.ts";
-import { branch, chain } from "@yae/graph/utils.ts";
+import { createNodes, branch, chain } from "@yae/graph/utils.ts";
 import type { GraphNode, Chainable } from "@yae/graph/types.ts";
 
 /**
@@ -91,21 +85,23 @@ export interface WorkflowResult<T = Record<string, unknown>> {
 // Node Factories
 // =============================================================================
 
-/** Curried factory for creating nodes that operate on AgentState. */
-export const workflowNode = <T>() => {
-  return <P = void, E = void>(config: NodeConfig<AgentState<T>, P, E>) => {
-    return new Node<AgentState<T>, P, E>(config);
-  };
-};
-
-/** Curried factory for creating parallel nodes that operate on AgentState. */
-export const workflowParallel = <T>() => {
-  return <P = void, E = void>(
-    config: ParallelNodeConfig<AgentState<T>, P, E>,
-  ) => {
-    return new ParallelNode<AgentState<T>, P, E>(config);
-  };
-};
+/**
+ * Create typed node factories for workflow nodes that operate on AgentState.
+ *
+ * @example
+ * const { node, parallel } = createWorkflowNodes<{ count: number }>();
+ *
+ * const increment = node({
+ *   name: "increment",
+ *   post: (state) => {
+ *     state.data.count++;
+ *     return undefined;
+ *   },
+ * });
+ */
+export function createWorkflowNodes<T>() {
+  return createNodes<AgentState<T>>();
+}
 
 // =============================================================================
 // Workflow Definition Helpers
@@ -126,10 +122,10 @@ export interface DefineWorkflowConfig<T> {
    * Receives helper utilities and returns the starting node.
    */
   build: (helpers: {
-    /** Curried node factory pre-bound to AgentState<T> */
-    node: ReturnType<typeof workflowNode<T>>;
-    /** Curried parallel node factory pre-bound to AgentState<T> */
-    parallel: ReturnType<typeof workflowParallel<T>>;
+    /** Create a sequential node */
+    node: ReturnType<typeof createWorkflowNodes<T>>["node"];
+    /** Create a parallel node */
+    parallel: ReturnType<typeof createWorkflowNodes<T>>["parallel"];
     /** Chain utility for linking nodes */
     chain: typeof chain;
     /** Branch utility for conditional routing */
@@ -171,9 +167,11 @@ export function defineWorkflow<T>(
     throw new Error("Workflow initialState must be a function");
   }
 
+  const { node, parallel } = createWorkflowNodes<T>();
+
   const helpers = {
-    node: workflowNode<T>(),
-    parallel: workflowParallel<T>(),
+    node,
+    parallel,
     chain,
     branch,
   };
@@ -221,7 +219,7 @@ export interface CreateWorkflowConfig<T> {
  * Use this when you want to define nodes separately and compose them freely.
  *
  * @example
- * const node = workflowNode<{ count: number }>();
+ * const { node } = createWorkflowNodes<{ count: number }>();
  *
  * const increment = node({
  *   name: "increment",
@@ -317,8 +315,7 @@ export async function runWorkflow<T>(
       completedAt: Date.now(),
     });
   } catch (err) {
-    error =
-      err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+    error = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
     finalStatus = "failed";
     await ctx.workflows.update(runId, {
       status: "failed",

@@ -17,22 +17,45 @@ import {
 // Node Utilities
 
 /**
- * A curried factory to enable partial type inference.
- * node<State>()(...) and parallel<State>()(...) allows
- * you to define the State once and have P and E inferred
- * automatically from your logic.
+ * Create typed node factories for a given state type.
+ *
+ * Bind your state type once, then create nodes with full type inference
+ * for prep/exec/post parameters.
+ *
+ * @example
+ * interface MyState { items: string[]; count: number }
+ *
+ * const { node, parallel } = createNodes<MyState>();
+ *
+ * const counter = node({
+ *   prep: (s) => s.items,           // s is MyState, returns string[]
+ *   exec: (items) => items.length,  // items inferred as string[], returns number
+ *   post: (s, _prep, count) => {    // count inferred as number
+ *     s.count = count;
+ *     return undefined;
+ *   },
+ * });
+ *
+ * const batcher = parallel({
+ *   prep: (s) => s.items,
+ *   exec: (item) => item.toUpperCase(),
+ *   post: (s, _items, results) => {
+ *     s.items = results;
+ *     return undefined;
+ *   },
+ * });
  */
-export const node = <S>() => {
-  return <P = void, E = void>(config: NodeConfig<S, P, E>) => {
-    return new Node<S, P, E>(config);
+export function createNodes<S>() {
+  return {
+    /** Create a sequential node with retry and timeout support. */
+    node: <P = void, E = void>(config: NodeConfig<S, P, E>): Node<S, P, E> =>
+      new Node<S, P, E>(config),
+    /** Create a parallel node that processes prep results concurrently. */
+    parallel: <P = void, E = void>(
+      config: ParallelNodeConfig<S, P, E>,
+    ): ParallelNode<S, P, E> => new ParallelNode<S, P, E>(config),
   };
-};
-
-export const parallel = <S>() => {
-  return <P = void, E = void>(config: ParallelNodeConfig<S, P, E>) => {
-    return new ParallelNode<S, P, E>(config);
-  };
-};
+}
 
 /**
  * Internal helper that chains nodes/branches and returns both first and last references.

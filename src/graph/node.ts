@@ -4,6 +4,7 @@ import {
   type Chainable,
   type Action,
   type NextAction,
+  type RetryConfig,
 } from "./types";
 
 // ============================================================================
@@ -154,13 +155,6 @@ export class BaseNode<S, P = void, E = void> implements GraphNode<S> {
 // ============================================================================
 // Node
 // ============================================================================
-
-type RetryConfig = {
-  maxAttempts: number;
-  delay?: number; // milliseconds
-  backoff?: "linear" | "exponential";
-  onRetry?: (attempt: number, error: Error) => Promise<void> | void;
-};
 
 export type NodeConfig<S, P = void, E = void> = BaseNodeConfig<S, P, E> & {
   retry?: RetryConfig;

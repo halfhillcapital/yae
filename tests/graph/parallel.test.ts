@@ -1,5 +1,12 @@
 import { test, expect } from "bun:test";
-import { Node, ParallelNode, Flow, chain, parallel, branch } from "@yae/graph";
+import {
+  Node,
+  ParallelNode,
+  Flow,
+  chain,
+  createNodes,
+  branch,
+} from "@yae/graph";
 
 type TestState = {
   items: number[];
@@ -794,7 +801,9 @@ test("parallelNode factory creates ParallelNode", async () => {
     callCount: 0,
   };
 
-  const node = parallel<TestState>()({
+  const { parallel } = createNodes<TestState>();
+
+  const node = parallel({
     name: "Factory created",
     prep: (s) => s.items,
     exec: (item) => item * 3,
@@ -812,7 +821,9 @@ test("parallelNode factory creates ParallelNode", async () => {
 test("parallelNode factory with retry config", async () => {
   const shared: TestState = { items: [1], results: [], logs: [], callCount: 0 };
 
-  const node = parallel<TestState>()({
+  const { parallel } = createNodes<TestState>();
+
+  const node = parallel({
     name: "Factory with retry",
     prep: (s) => s.items,
     exec: (item) => {

@@ -19,329 +19,107 @@ bun run format      # Prettier format
 
 ### Graph Execution Engine (`src/graph/`)
 
-The core abstraction is a **directed graph of nodes** with prep/exec/post phases.
-
-**File structure:**
-
-- `types.ts` - Type definitions (`GraphNode`, `Branch`, `Chainable`, `Action`, `NextAction`, `isBranch`)
-- `node.ts` - BaseNode, Node, ParallelNode classes
-- `flow.ts` - Flow class
-- `utils.ts` - Factory functions and helpers
-- `index.ts` - Barrel export
-
-**Classes:**
-
-- **GraphNode\<S\>**: Interface defining the node contract (`work`, `next`, `to`, `when`, `clone`)
-- **BaseNode**: Minimal node with `prep()`, `exec()`, `post()` lifecycle and `onError` handler
-- **Node**: Extended with retry (linear/exponential backoff), timeout, and `fallback()` support
-- **ParallelNode**: Executes `prep()` items in parallel through `exec()`, collects results for `post()`
-- **Flow**: Sequential orchestration, clones nodes during execution, walks graph until no successor
-
-**Pipeline pattern (prep → exec → post):**
+Directed graph of nodes with **prep → exec → post** lifecycle:
 
 - `prep(shared)` - Read from shared state, prepare inputs
 - `exec(prepResult)` - Pure transformation (no shared state access)
 - `post(shared, prepResult, execResult)` - Write results, return action for routing
 
-**Typed factory functions** for full type inference through the pipeline:
+**Classes:**
+
+- **BaseNode** - Minimal node with lifecycle and `onError` handler
+- **Node** - Adds retry (linear/exponential backoff), timeout, `fallback()`
+- **ParallelNode** - Executes `prep()` items in parallel through `exec()`
+- **Flow** - Orchestrates graph execution, walks nodes until no successor
+
+**Factory functions:**
 
 ```ts
-// Sequential node
-const calc = node<MyState>()({
-  prep: (s) => ({ items: s.items }),
-  exec: (input) => input.items.length,
-  post: (s, _prep, count) => {
-    s.count = count;
-    return undefined;
-  },
-  onError: (error, shared) => { /* handle error, return action or throw */ },
+const { node, parallel } = createNodes<MyState>();
+
+const calc = node({
+  prep: (s) => s.items,
+  exec: (items) => items.length,
+  post: (s, _prep, count) => { s.count = count; return undefined; },
   retry: { maxAttempts: 3, backoff: "exponential" },
   timeout: 5000,
 });
-
-// Parallel node - prep returns array, exec runs on each item
-const batch = parallel<MyState>()({
-  prep: (s) => s.items,           // returns P[]
-  exec: (item) => process(item),  // called for each item
-  post: (s, items, results) => {  // results is E[]
-    s.processed = results;
-    return undefined;
-  },
-});
 ```
 
-**Node chaining API:**
-
-- `node.to(target)` - Default transition (accepts `GraphNode` or `Branch`, returns exit point for chaining)
-- `node.when(action, next)` - Conditional branching based on `post()` return
-
-**Utility functions:**
-
-- `node<S>()` - Curried factory for creating Node with type inference
-- `parallel<S>()` - Curried factory for creating ParallelNode with type inference
-- `chain(...items)` - Link nodes/branches sequentially, returns first node
-- `branch(router, routes)` - Create branching structure, returns `{ entry, exit }`
-- `sequential(nodes, config?)` - Create Flow from node array
-- `Flow.from(start, config?)` - Static factory for creating Flow
-
-**Branching with `branch()`:**
+**Chaining & branching:**
 
 ```ts
-// branch() returns { entry, exit } for use in chain()
-chain(
-  node1,
-  branch(router, {
-    success: [processNode, saveNode],
-    error: [logErrorNode],
-  }),
-  node2
-);
-
-// Multiple branches in sequence
-chain(
-  branch(router1, { a: [pathA], b: [pathB] }),
-  branch(router2, { x: [pathX], y: [pathY] }),
-  finalNode
-);
-
-// Fluent chaining with to()
-node1.to(branch(router, { a: [pathA], b: [pathB] })).to(node2);
-
-// Access entry/exit directly when needed
-const { entry, exit } = branch(router, { ... });
-exit.to(customEndNode);
+chain(node1, node2, node3);                    // Sequential
+branch(router, { ok: [a, b], err: [c] });      // Conditional routing
+node.to(target);                               // Fluent chaining
+node.when("action", nextNode);                 // Action-based routing
 ```
-
-**Flow configuration hooks:**
-
-- `beforeStart(shared)` - Called before graph execution begins
-- `afterComplete(shared, finalAction)` - Called after graph completes
-- `onNodeExecute(node, action)` - Called after each node executes
-- `onError(error, node, shared)` - Called when a node throws
-- `maxIterations` - Guard against infinite loops (default: 1000)
 
 ### Yae - The Server (`src/core/`)
 
-**Yae** is the singleton that IS the server. She manages user agents, user authentication, worker pool, and server lifecycle.
+Singleton managing user agents, authentication, worker pool, and server lifecycle.
 
 ```ts
 const yae = await Yae.initialize();
-
-// Admin token (generated fresh each startup)
-yae.getAdminToken();
-yae.isAdminToken(token);
-
-// User agent management
+yae.getAdminToken();                    // Fresh each startup
 await yae.createUserAgent(userId);
-yae.getUserAgent(userId);
-yae.listUserAgents();
-
-// User management (persisted to DB)
-await yae.registerUser("Alice", "admin");
-await yae.getUserByApiKey(apiKey);
-
-// Worker pool (used internally by UserAgent.runWorkflow)
-yae.checkoutWorker();     // Get a worker from the pool (or null if exhausted)
-yae.returnWorker(id);     // Return a worker to the pool
-yae.getPoolStatus();      // { available: number, busy: number }
-
-// Server control
-yae.getHealth();          // Includes pool status
-await yae.shutdown();
-
-// Yae's own persistence
-yae.memory.get("label");
+yae.checkoutWorker() / yae.returnWorker(id);  // Worker pool
 ```
 
-**Worker Pool:** Initialized with 4 workers at startup. Workers are stateless and shared across all agents.
+### Agents (`src/core/agents.ts`)
 
-**Database:** `./data/yae.db` (memory + messages + users tables)
-
-### Agents (`src/core/`)
-
-- **UserAgent** (`src/core/agents.ts`): Container class with `memory`, `messages`, `files` repositories. Executes workflows by checking out workers from Yae's pool.
-- **WorkerAgent** (`src/core/agents.ts`): Stateless workflow executor. Workers are pooled in Yae and shared across all agents.
+- **UserAgent** - Container with `memory`, `messages`, `files` repositories. Runs workflows via worker pool.
+- **WorkerAgent** - Stateless workflow executor, pooled and shared across agents.
 
 ```ts
-// UserAgent checks out a worker from the pool, executes, then returns it
 const result = await agent.runWorkflow(myWorkflow, { input: "data" });
-// Throws "No workers available in pool" if pool is exhausted
-
-// WorkerAgent.execute() is called internally with the agent's context
-worker.execute(workflow, agentId, ctx, initialData);
 ```
-
-**Database:** `./data/agents/agent_{id}.db` (memory + messages + workflow_runs tables)
 
 ### Workflows (`src/core/workflows/`)
 
-The workflow system executes graph-based flows with agent context access.
+Graph-based flows with agent context access.
 
-**File structure:**
-
-- `index.ts` - Types, utilities (`defineWorkflow`, `createWorkflow`, `workflowNode`, `workflowParallel`), and `runWorkflow`
-- `definitions/` - User-defined workflow files (planned)
-
-**Defining and running workflows:**
-
-Workflows are defined with `defineWorkflow()` or `createWorkflow()` and executed with `runWorkflow()`:
+**AgentState\<T\>** - Shared state with `memory`, `messages`, `files`, `data`, and `run` info.
 
 ```ts
-import { defineWorkflow, runWorkflow } from "@yae/core/workflows";
-
-// Define a workflow
-const myWorkflow = defineWorkflow<{ count: number }>({
-  name: "my-workflow",
+const workflow = defineWorkflow<{ count: number }>({
+  name: "counter",
   initialState: () => ({ count: 0 }),
   build: ({ node, chain }) => {
     const increment = node({
-      name: "increment",
-      post: (state) => {
-        state.data.count++;
-        return undefined;
-      },
+      post: (state) => { state.data.count++; return undefined; },
     });
     return chain(increment);
   },
 });
 
-// Execute directly
-const result = await runWorkflow(myWorkflow, agentId, ctx, { count: 10 });
-// result: { runId, status, state, duration, error? }
+const result = await runWorkflow(workflow, agentId, ctx);
 ```
 
-**AgentState\<T\>**: Shared state passed through workflow nodes.
-
-```ts
-interface AgentState<T> {
-  readonly memory: MemoryRepository;   // Labeled memory blocks
-  readonly messages: MessagesRepository; // Conversation history
-  readonly files: FileRepository;      // File system operations
-  data: T;                             // Workflow-specific data (mutable)
-  readonly run: {                      // Runtime info
-    id: string;
-    workflow: string;
-    startedAt: number;
-  };
-}
-```
-
-**Two ways to define workflows:**
-
-1. **`defineWorkflow()`** - Self-contained, build graph inline with provided helpers
-2. **`createWorkflow()`** - Composable, define nodes separately and pass a flow factory
-
-**`defineWorkflow()` helper:**
-
-The `build` function receives helpers (`node`, `parallel`, `chain`, `branch`) pre-bound to `AgentState<T>`:
-
-```ts
-const workflow = defineWorkflow<{ items: string[]; count: number }>({
-  name: "example",
-  initialState: () => ({ items: [], count: 0 }),
-  build: ({ node, parallel, chain, branch }) => {
-    // node() and parallel() create nodes that work with AgentState
-    const count = node<string[], number>({
-      prep: (s) => s.data.items,
-      exec: (items) => items.length,
-      post: (s, _prep, count) => {
-        s.data.count = count;
-        return undefined;
-      },
-    });
-
-    // chain() and branch() work the same as in @yae/graph
-    return chain(count);
-  },
-});
-```
-
-**`createWorkflow()` + `workflowNode()` for composable workflows:**
-
-Use `workflowNode<T>()` and `workflowParallel<T>()` to define nodes separately, then compose with standard graph utilities:
-
-```ts
-import { workflowNode, createWorkflow } from "@yae/core/workflows";
-import { Flow, chain } from "@yae/graph";
-
-// Define nodes separately - can be reused, tested, composed
-const node = workflowNode<{ count: number }>();
-
-const increment = node({
-  name: "increment",
-  post: (s) => { s.data.count++; return undefined; },
-});
-
-const log = node({
-  name: "log",
-  post: (s) => { console.log(s.data.count); return undefined; },
-});
-
-// Pass a flow factory - full control over graph construction
-const workflow = createWorkflow({
-  name: "counter",
-  initialState: () => ({ count: 0 }),
-  flow: () => Flow.from(chain(increment, log)),
-});
-```
+For composable workflows, use `createWorkflowNodes<T>()` to define nodes separately.
 
 ### Database (`src/db/`)
 
-Each agent gets its own SQLite database at `./data/agents/agent_{id}.db` plus an AgentFS instance for file operations.
+Each agent gets SQLite at `./data/agents/agent_{id}.db`.
 
-**AgentContext** (`src/db/context.ts`): Single entry point for all database access. Creates DB connection, runs migrations, and initializes repositories.
+**AgentContext** - Entry point for DB access: `ctx.memory`, `ctx.messages`, `ctx.files`, `ctx.workflows`.
 
-```ts
-const ctx = await AgentContext.create(agentId);
-ctx.memory.get("label");
-ctx.messages.save("user", "hello");
-ctx.files.readFile("/path");
-```
+**Repositories:**
 
-**Schemas** (`src/db/schemas/`):
-
-- `agent-schema.ts`: `memory` (label, description, content), `messages` (role, content, createdAt)
-- `admin-schema.ts`: `users` (id, name, apiKey, role, createdAt)
-
-**Repositories** (`src/db/repositories/`):
-
-- **MemoryRepository**: Labeled memory blocks with in-memory cache, `has()`, `get()`, `getAll()`, `set()`, `delete()`, `toXML()`
-- **MessagesRepository**: Conversation history (max 50), `getAll()`, `save()`
-- **FileRepository**: Wraps AgentFS filesystem - `readFile()`, `writeFile()`, `readdir()`, `mkdir()`, `rm()`, `exists()`, `stat()`, etc.
-
-**CLI commands:**
-
-- `bun run db:generate:agent` - Generate agent schema migrations (memory, messages)
-- `bun run db:generate:admin` - Generate admin schema migrations (users)
-- `bun run db:studio` - Open Drizzle Studio GUI
+- **MemoryRepository** - Labeled blocks with cache: `get()`, `set()`, `delete()`, `toXML()`
+- **MessagesRepository** - Conversation history (max 50): `getAll()`, `save()`
+- **FileRepository** - File operations: `readFile()`, `writeFile()`, `readdir()`, etc.
 
 ### API Layer (`src/api/`)
 
-Two-tier bearer token authentication:
-
-1. **Admin token** - Generated fresh on each startup, printed to console
-2. **User tokens** - Stored in DB as `apiKey`, returned when registering users
-
-**Endpoints:**
+Two-tier bearer token auth: **Admin token** (generated at startup) and **User tokens** (stored in DB).
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health` | None | Health check |
-| POST | `/admin/users` | Admin | Register user (returns apiKey) |
-| GET | `/admin/users` | Admin | List all users |
-| DELETE | `/admin/users/:id` | Admin | Delete user |
-| POST | `/chat` | User | Chat with user's agent |
-
-**Middleware** (`src/api/middleware.ts`):
-
-- `adminAuth` - Validates admin token via `Yae.isAdminToken()` (timing-safe comparison)
-- `userAuth` - Looks up user by apiKey, creates/gets their agent
-
-**Security:**
-
-- Rate limiting: 10 requests per 60 seconds per IP (via `elysia-rate-limit`)
-- Timing-safe admin token comparison (prevents timing attacks)
+| POST | `/admin/users` | Admin | Register user |
+| POST | `/chat` | User | Chat with agent |
 
 ## Path Aliases
 
-Use `@yae/*` to import from `./src/*` (configured in tsconfig.json).
+Use `@yae/*` to import from `./src/*`.
