@@ -2,12 +2,7 @@ import { eq } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/libsql";
 import { memoryTable } from "../schemas/agent-schema.ts";
 
-export type MemoryBlock = {
-  label: string;
-  description: string;
-  content: string;
-  updatedAt: number;
-};
+import type { MemoryBlock, ToolCallResult } from "baml_client";
 
 export class MemoryRepository {
   private blocks: Map<string, MemoryBlock> = new Map();
@@ -48,7 +43,7 @@ export class MemoryRepository {
       label,
       description,
       content,
-      updatedAt: Date.now(),
+      updated_at: Date.now(),
     });
   }
 
@@ -62,6 +57,91 @@ export class MemoryRepository {
     return true;
   }
 
+  async toolUpdateMemory(
+    label: string,
+    oldContent: string,
+    newContent: string,
+  ): Promise<ToolCallResult> {
+    const block = this.blocks.get(label);
+    const result: ToolCallResult = {
+      name: "memory_update",
+      status: "failure" as const,
+      input: `label: ${label}, old_content: ${oldContent}, new_content: ${newContent}`,
+      output: "",
+    };
+
+    if (!block) {
+      result.output = `Memory block with label "${label}" does not exist.`;
+      return result;
+    }
+
+    if (!block.content.includes(oldContent)) {
+      result.output = `The provided old_content was not found in memory block with label "${label}". 
+        Please ensure that old_content matches exactly what is in the memory block before attempting to update it.`;
+      return result;
+    }
+
+    const updatedContent = block.content.replace(oldContent, newContent);
+
+    await this.db
+      .update(memoryTable)
+      .set({ content: updatedContent })
+      .where(eq(memoryTable.label, label));
+
+    block.content = updatedContent;
+    block.updated_at = Date.now();
+    this.blocks.set(label, block);
+
+    result.status = "success";
+    result.output = `The core memory block with label ${label} has been edited. 
+      Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc). 
+      Edit the memory block again if necessary.`;
+    return result;
+  }
+
+  async toolInsertMemory(
+    label: string,
+    content: string,
+    line: number,
+  ): Promise<ToolCallResult> {
+    const block = this.blocks.get(label);
+    const result: ToolCallResult = {
+      name: "memory_insert",
+      status: "failure" as const,
+      input: `label: ${label}, content: ${content}, line: ${line}`,
+      output: "",
+    };
+
+    if (!block) {
+      result.output = `Memory block with label "${label}" does not exist.`;
+      return result;
+    }
+
+    const lines = block.content.split("\n");
+    if (line < 0 || line > lines.length) {
+      result.output = `Invalid line number ${line} for memory block with label "${label}". Parameter line must be between 0 and ${lines.length}.`;
+      return result;
+    }
+
+    lines.splice(line, 0, content);
+    const newContent = lines.join("\n");
+
+    await this.db
+      .update(memoryTable)
+      .set({ content: newContent })
+      .where(eq(memoryTable.label, label));
+
+    block.content = newContent;
+    block.updated_at = Date.now();
+    this.blocks.set(label, block);
+
+    result.status = "success";
+    result.output = `The core memory block with label ${label} has been edited. 
+    Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc). 
+    Edit the memory block again if necessary.`;
+    return result;
+  }
+
   private async load() {
     const rows = await this.db.select().from(memoryTable);
     this.blocks.clear();
@@ -70,7 +150,7 @@ export class MemoryRepository {
         label: row.label,
         description: row.description,
         content: row.content,
-        updatedAt: row.updatedAt,
+        updated_at: row.updated_at,
       });
     }
   }

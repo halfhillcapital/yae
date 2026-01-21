@@ -10,7 +10,7 @@ export const memoryTable = table("memory", {
   label: text().notNull().unique(),
   description: text().notNull(),
   content: text().notNull(),
-  updatedAt: int()
+  updated_at: int()
     .notNull()
     .default(Date.now())
     .$onUpdate(() => Date.now()),
@@ -22,9 +22,9 @@ export const messagesTable = table(
     id: int().primaryKey({ autoIncrement: true }),
     role: text().notNull(),
     content: text().notNull(),
-    createdAt: int().notNull().default(Date.now()),
+    created_at: int().notNull().default(Date.now()),
   },
-  (t) => [index("messages_created_idx").on(t.createdAt)],
+  (t) => [index("messages_created_idx").on(t.created_at)],
 );
 
 export const workflowRunsTable = table(
@@ -32,16 +32,16 @@ export const workflowRunsTable = table(
   {
     id: text().primaryKey(),
     workflow: text().notNull(),
-    agentId: text().notNull(),
+    agent_id: text().notNull(),
     status: text().notNull(),
     state: text().notNull(), // JSON serialized
     error: text(),
-    startedAt: int().notNull(),
-    updatedAt: int().notNull(),
-    completedAt: int(),
+    started_at: int().notNull(),
+    updated_at: int().notNull(),
+    completed_at: int(),
   },
   (t) => [
-    index("workflow_runs_agent_idx").on(t.agentId),
+    index("workflow_runs_agent_idx").on(t.agent_id),
     index("workflow_runs_status_idx").on(t.status),
   ],
 );

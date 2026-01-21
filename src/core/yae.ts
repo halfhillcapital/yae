@@ -112,7 +112,7 @@ export class Yae {
 
     const agentId = `agent_${userId}`;
     const ctx = await AgentContext.create(agentId, AGENTS_DB_DIR);
-    const agent = new UserAgent(agentId, userId, ctx);
+    const agent = new UserAgent(agentId, ctx);
 
     this.userAgents.set(userId, agent);
     return agent;
@@ -138,8 +138,8 @@ export class Yae {
     return this.admin.registerUser(name, role);
   }
 
-  async getUserByApiKey(apiKey: string): Promise<User | null> {
-    return this.admin.getUserByApiKey(apiKey);
+  async getUserByToken(token: string): Promise<User | null> {
+    return this.admin.getUserByToken(token);
   }
 
   async getUserById(id: string): Promise<User | null> {

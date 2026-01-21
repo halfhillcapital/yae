@@ -72,9 +72,9 @@ export class AgentContext {
 export type User = {
   id: string;
   name: string;
-  apiKey: string;
+  token: string;
   role: string;
-  createdAt: number;
+  created_at: number;
 };
 
 export class AdminContext {
@@ -93,25 +93,25 @@ export class AdminContext {
 
   async registerUser(name: string, role: string = "user"): Promise<User> {
     const id = crypto.randomUUID();
-    const apiKey = `yae_${crypto.randomUUID().replace(/-/g, "")}`;
-    const createdAt = Date.now();
+    const token = `yae_${crypto.randomUUID().replace(/-/g, "")}`;
+    const created_at = Date.now();
 
     await this.db.insert(adminSchema.usersTable).values({
       id,
       name,
-      apiKey,
+      token,
       role,
-      createdAt,
+      created_at,
     });
 
-    return { id, name, apiKey, role, createdAt };
+    return { id, name, token, role, created_at };
   }
 
-  async getUserByApiKey(apiKey: string): Promise<User | null> {
+  async getUserByToken(token: string): Promise<User | null> {
     const rows = await this.db
       .select()
       .from(adminSchema.usersTable)
-      .where(eq(adminSchema.usersTable.apiKey, apiKey))
+      .where(eq(adminSchema.usersTable.token, token))
       .limit(1);
 
     return rows[0] ?? null;

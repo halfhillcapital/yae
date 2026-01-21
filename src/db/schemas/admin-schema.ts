@@ -10,9 +10,9 @@ export const usersTable = table(
   {
     id: text().primaryKey(),
     name: text().notNull(),
-    apiKey: text().notNull().unique(),
+    token: text().notNull().unique(),
     role: text().notNull().default("user"),
-    createdAt: int().notNull().default(Date.now()),
+    created_at: int().notNull().default(Date.now()),
   },
-  (t) => [index("users_api_key_idx").on(t.apiKey)],
+  (t) => [index("users_token_idx").on(t.token)],
 );

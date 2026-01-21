@@ -2,7 +2,6 @@ import { Elysia, t } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
 import { Yae } from "@yae/core";
 import { adminAuth, userAuth } from "./middleware";
-import { b, type Message, type ChatContext } from "baml_client";
 
 export const routes = new Elysia()
   // Rate limiting: 10 requests per 60 seconds per IP
@@ -31,12 +30,12 @@ export const routes = new Elysia()
     "/verify",
     async ({ body }) => {
       const yae = Yae.getInstance();
-      const user = await yae.getUserByApiKey(body.apiKey);
+      const user = await yae.getUserByToken(body.token);
       return { valid: !!user };
     },
     {
       body: t.Object({
-        apiKey: t.String(),
+        token: t.String(),
       }),
     },
   )
@@ -75,25 +74,21 @@ export const routes = new Elysia()
   .use(userAuth)
   .post(
     "/chat",
-    async ({ body, user, agent }) => {
+    async ({ body, user, agent, set }) => {
       // user and agent are injected by userAuth middleware
       if (!user || !agent) {
-        return "Blocked! Invalid user or agent.";
+        set.status = 401;
+        return "Blocked! User not recognized.";
       }
-      const userMessage: Message = { role: "user", content: body.message };
-      await agent.messages.save(userMessage);
 
-      const chatContext: ChatContext = {
-        memories: agent.memory.getAll(),
-        files: await agent.files.getFileTree("/"),
-        messages: agent.messages.getAll(),
-      };
-
-      const response = await b.Chat(chatContext);
-      const agentMessage: Message = { role: "assistant", content: response };
-      await agent.messages.save(agentMessage);
-
-      return response;
+      try {
+        const result = await agent.runAgentLoop(body.message);
+        return result;
+      } catch (err) {
+        console.error("[Chat Error]", err);
+        set.status = 500;
+        return "Something went wrong while processing your request.";
+      }
     },
     {
       body: t.Object({

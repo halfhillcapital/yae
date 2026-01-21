@@ -35,7 +35,7 @@ export class MessagesRepository {
     const rows = await this.db
       .select()
       .from(messagesTable)
-      .orderBy(asc(messagesTable.createdAt));
+      .orderBy(asc(messagesTable.created_at));
     this.conversations = rows.map((r) => ({
       role: r.role as Message["role"],
       content: r.content,

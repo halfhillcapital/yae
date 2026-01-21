@@ -29,7 +29,7 @@ export const userAuth = new Elysia({ name: "user-auth" })
     if (!token) return { user: null, agent: null };
 
     const yae = Yae.getInstance();
-    const user = await yae.getUserByApiKey(token);
+    const user = await yae.getUserByToken(token);
     if (!user) return { user: null, agent: null };
 
     const agent = await yae.createUserAgent(user.id);

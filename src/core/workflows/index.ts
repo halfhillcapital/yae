@@ -2,16 +2,14 @@
 // Types
 // =============================================================================
 
-import type { Flow } from "@yae/graph";
-import type { AgentContext } from "@yae/db/context.ts";
+import { Flow, createNodes, branch, chain } from "@yae/graph";
+import type { GraphNode, Chainable, FlowConfig } from "@yae/graph";
 import type {
+  AgentContext,
   MemoryRepository,
   MessagesRepository,
   FileRepository,
-} from "@yae/db/repositories";
-import { Flow as FlowClass, type FlowConfig } from "@yae/graph/flow.ts";
-import { createNodes, branch, chain } from "@yae/graph/utils.ts";
-import type { GraphNode, Chainable } from "@yae/graph/types.ts";
+} from "@yae/db";
 
 /**
  * Shared state object passed through workflow nodes.
@@ -31,7 +29,7 @@ export interface AgentState<T = Record<string, unknown>> {
   readonly run: {
     id: string;
     workflow: string;
-    startedAt: number;
+    started_at: number;
   };
 }
 
@@ -43,15 +41,15 @@ export type WorkflowStatus = "pending" | "running" | "completed" | "failed";
 export interface WorkflowRun<T = Record<string, unknown>> {
   id: string;
   workflow: string;
-  agentId: string;
+  agent_id: string;
   status: WorkflowStatus;
   /** Serialized workflow-specific data */
   state: T;
   /** Error message if status is 'failed' */
   error?: string;
-  startedAt: number;
-  updatedAt: number;
-  completedAt?: number;
+  started_at: number;
+  updated_at: number;
+  completed_at?: number;
 }
 
 /**
@@ -74,7 +72,7 @@ export interface WorkflowDefinition<T = Record<string, unknown>> {
  * Result returned after a workflow completes or fails.
  */
 export interface WorkflowResult<T = Record<string, unknown>> {
-  runId: string;
+  run: string;
   status: WorkflowStatus;
   state: T;
   duration: number;
@@ -190,7 +188,7 @@ export function defineWorkflow<T>(
         ? chain<AgentState<T>>(...graphResult)
         : graphResult;
 
-      const flow = FlowClass.from(startNode, {
+      const flow = Flow.from(startNode, {
         name: config.name,
         ...config.flowConfig,
       });
@@ -271,23 +269,23 @@ export function createWorkflow<T>(
  */
 export async function runWorkflow<T>(
   workflow: WorkflowDefinition<T>,
-  agentId: string,
+  agent_id: string,
   ctx: AgentContext,
   initialData?: Partial<T>,
 ): Promise<WorkflowResult<T>> {
-  const runId = crypto.randomUUID();
-  const startedAt = Date.now();
+  const id = crypto.randomUUID();
+  const started_at = Date.now();
 
   const { flow, initialState: state } = workflow.create(initialData);
 
   const run: WorkflowRun<T> = {
-    id: runId,
+    id,
     workflow: workflow.name,
-    agentId,
+    agent_id,
     status: "running",
     state,
-    startedAt,
-    updatedAt: startedAt,
+    started_at,
+    updated_at: started_at,
   };
 
   await ctx.workflows.create(run);
@@ -301,23 +299,23 @@ export async function runWorkflow<T>(
     files: ctx.files,
     data: state,
     run: {
-      id: runId,
+      id,
       workflow: flow.name ?? "unknown",
-      startedAt,
+      started_at,
     },
   };
 
   try {
     await flow.run(agentState);
-    await ctx.workflows.update(runId, {
+    await ctx.workflows.update(id, {
       status: "completed",
       state: agentState.data,
-      completedAt: Date.now(),
+      completed_at: Date.now(),
     });
   } catch (err) {
     error = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
     finalStatus = "failed";
-    await ctx.workflows.update(runId, {
+    await ctx.workflows.update(id, {
       status: "failed",
       state: agentState.data,
       error,
@@ -325,10 +323,10 @@ export async function runWorkflow<T>(
   }
 
   return {
-    runId,
+    run: id,
     status: finalStatus,
     state: agentState.data,
-    duration: Date.now() - startedAt,
+    duration: Date.now() - started_at,
     error,
   };
 }

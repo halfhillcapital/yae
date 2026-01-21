@@ -10,32 +10,32 @@ export class WorkflowRepository {
     await this.db.insert(workflowRunsTable).values({
       id: run.id,
       workflow: run.workflow,
-      agentId: run.agentId,
+      agent_id: run.agent_id,
       status: run.status,
       state: JSON.stringify(run.state),
       error: run.error,
-      startedAt: run.startedAt,
-      updatedAt: run.updatedAt,
-      completedAt: run.completedAt,
+      started_at: run.started_at,
+      updated_at: run.updated_at,
+      completed_at: run.completed_at,
     });
   }
 
   async update<T>(
     id: string,
     updates: Partial<
-      Pick<WorkflowRun<T>, "status" | "state" | "error" | "completedAt">
+      Pick<WorkflowRun<T>, "status" | "state" | "error" | "completed_at">
     >,
   ): Promise<void> {
     const dbUpdates: Record<string, unknown> = {
-      updatedAt: Date.now(),
+      updated_at: Date.now(),
     };
 
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.state !== undefined)
       dbUpdates.state = JSON.stringify(updates.state);
     if (updates.error !== undefined) dbUpdates.error = updates.error;
-    if (updates.completedAt !== undefined)
-      dbUpdates.completedAt = updates.completedAt;
+    if (updates.completed_at !== undefined)
+      dbUpdates.completed_at = updates.completed_at;
 
     await this.db
       .update(workflowRunsTable)
@@ -54,19 +54,22 @@ export class WorkflowRepository {
     return this.toWorkflowRun<T>(rows[0]!);
   }
 
-  async listByAgent<T>(agentId: string, limit = 50): Promise<WorkflowRun<T>[]> {
+  async listByAgent<T>(
+    agent_id: string,
+    limit = 50,
+  ): Promise<WorkflowRun<T>[]> {
     const rows = await this.db
       .select()
       .from(workflowRunsTable)
-      .where(eq(workflowRunsTable.agentId, agentId))
-      .orderBy(desc(workflowRunsTable.startedAt))
+      .where(eq(workflowRunsTable.agent_id, agent_id))
+      .orderBy(desc(workflowRunsTable.started_at))
       .limit(limit);
 
     return rows.map((row) => this.toWorkflowRun<T>(row));
   }
 
   async listByStatus<T>(
-    agentId: string,
+    agent_id: string,
     status: WorkflowStatus,
     limit = 50,
   ): Promise<WorkflowRun<T>[]> {
@@ -75,11 +78,11 @@ export class WorkflowRepository {
       .from(workflowRunsTable)
       .where(
         and(
-          eq(workflowRunsTable.agentId, agentId),
+          eq(workflowRunsTable.agent_id, agent_id),
           eq(workflowRunsTable.status, status),
         ),
       )
-      .orderBy(desc(workflowRunsTable.startedAt))
+      .orderBy(desc(workflowRunsTable.started_at))
       .limit(limit);
 
     return rows.map((row) => this.toWorkflowRun<T>(row));
@@ -95,8 +98,8 @@ export class WorkflowRepository {
       .update(workflowRunsTable)
       .set({
         status: "failed",
-        completedAt: Date.now(),
-        updatedAt: Date.now(),
+        completed_at: Date.now(),
+        updated_at: Date.now(),
         error: "Workflow interrupted by server restart",
       })
       .where(eq(workflowRunsTable.status, "running"));
@@ -107,24 +110,24 @@ export class WorkflowRepository {
   private toWorkflowRun<T>(row: {
     id: string;
     workflow: string;
-    agentId: string;
+    agent_id: string;
     status: string;
     state: string;
     error: string | null;
-    startedAt: number;
-    updatedAt: number;
-    completedAt: number | null;
+    started_at: number;
+    updated_at: number;
+    completed_at: number | null;
   }): WorkflowRun<T> {
     return {
       id: row.id,
       workflow: row.workflow,
-      agentId: row.agentId,
+      agent_id: row.agent_id,
       status: row.status as WorkflowStatus,
       state: JSON.parse(row.state) as T,
       error: row.error ?? undefined,
-      startedAt: row.startedAt,
-      updatedAt: row.updatedAt,
-      completedAt: row.completedAt ?? undefined,
+      started_at: row.started_at,
+      updated_at: row.updated_at,
+      completed_at: row.completed_at ?? undefined,
     };
   }
 }

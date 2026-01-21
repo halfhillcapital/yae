@@ -331,7 +331,7 @@ test("Workflow run is persisted to database", async () => {
   const result = await runWorkflow(workflow, "test-agent", ctx);
 
   // Verify run is persisted via ctx.workflows
-  const run = await ctx.workflows.get<SimpleData>(result.runId);
+  const run = await ctx.workflows.get<SimpleData>(result.run);
   expect(run).not.toBeNull();
   expect(run!.status).toBe("completed");
   expect(run!.state.done).toBe(true);
@@ -339,7 +339,7 @@ test("Workflow run is persisted to database", async () => {
   // Verify history via ctx.workflows
   const history = await ctx.workflows.listByAgent<SimpleData>("test-agent");
   expect(history.length).toBeGreaterThan(0);
-  expect(history[0]!.id).toBe(result.runId);
+  expect(history[0]!.id).toBe(result.run);
 });
 
 // ============================================================================
