@@ -6,7 +6,7 @@
   "author": "Halfhill Capital",
   "license": "GPL-3.0",
   "scripts": {
-    "start": "baml-cli generate && bun run src/index.ts",
+    "start": "bun run src/index.ts",
     "lint": "eslint .",
     "format": "prettier . --write",
     "watch": "bun --watch src/index.ts",
@@ -28,14 +28,14 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "3.7.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.52.0"
+    "typescript-eslint": "^8.53.1"
   },
   "dependencies": {
-    "@boundaryml/baml": "^0.217.0",
+    "@boundaryml/baml": "latest",
     "@libsql/client": "^0.17.0",
     "agentfs-sdk": "^0.5.3",
     "drizzle-orm": "^0.45.1",
-    "elysia": "^1.4.21",
+    "elysia": "^1.4.22",
     "elysia-rate-limit": "^4.4.2"
   }
 }

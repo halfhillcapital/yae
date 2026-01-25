@@ -1,7 +1,7 @@
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/libsql";
 import { workflowRunsTable } from "../schemas/agent-schema.ts";
-import type { WorkflowRun, WorkflowStatus } from "@yae/core/workflows/index.ts";
+import type { WorkflowRun, WorkflowStatus } from "../index.ts";
 
 export class WorkflowRepository {
   constructor(private readonly db: ReturnType<typeof drizzle>) {}
@@ -10,7 +10,6 @@ export class WorkflowRepository {
     await this.db.insert(workflowRunsTable).values({
       id: run.id,
       workflow: run.workflow,
-      agent_id: run.agent_id,
       status: run.status,
       state: JSON.stringify(run.state),
       error: run.error,
@@ -54,34 +53,14 @@ export class WorkflowRepository {
     return this.toWorkflowRun<T>(rows[0]!);
   }
 
-  async listByAgent<T>(
-    agent_id: string,
-    limit = 50,
-  ): Promise<WorkflowRun<T>[]> {
-    const rows = await this.db
-      .select()
-      .from(workflowRunsTable)
-      .where(eq(workflowRunsTable.agent_id, agent_id))
-      .orderBy(desc(workflowRunsTable.started_at))
-      .limit(limit);
-
-    return rows.map((row) => this.toWorkflowRun<T>(row));
-  }
-
   async listByStatus<T>(
-    agent_id: string,
     status: WorkflowStatus,
     limit = 50,
   ): Promise<WorkflowRun<T>[]> {
     const rows = await this.db
       .select()
       .from(workflowRunsTable)
-      .where(
-        and(
-          eq(workflowRunsTable.agent_id, agent_id),
-          eq(workflowRunsTable.status, status),
-        ),
-      )
+      .where(eq(workflowRunsTable.status, status))
       .orderBy(desc(workflowRunsTable.started_at))
       .limit(limit);
 
@@ -110,8 +89,7 @@ export class WorkflowRepository {
   private toWorkflowRun<T>(row: {
     id: string;
     workflow: string;
-    agent_id: string;
-    status: string;
+    status: WorkflowStatus;
     state: string;
     error: string | null;
     started_at: number;
@@ -121,8 +99,7 @@ export class WorkflowRepository {
     return {
       id: row.id,
       workflow: row.workflow,
-      agent_id: row.agent_id,
-      status: row.status as WorkflowStatus,
+      status: row.status,
       state: JSON.parse(row.state) as T,
       error: row.error ?? undefined,
       started_at: row.started_at,

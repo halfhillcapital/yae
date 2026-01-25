@@ -9,6 +9,8 @@ import type {
   MemoryRepository,
   MessagesRepository,
   FileRepository,
+  WorkflowStatus,
+  WorkflowRun,
 } from "@yae/db";
 
 /**
@@ -31,25 +33,6 @@ export interface AgentState<T = Record<string, unknown>> {
     workflow: string;
     started_at: number;
   };
-}
-
-export type WorkflowStatus = "pending" | "running" | "completed" | "failed";
-
-/**
- * Persisted record of a workflow execution.
- */
-export interface WorkflowRun<T = Record<string, unknown>> {
-  id: string;
-  workflow: string;
-  agent_id: string;
-  status: WorkflowStatus;
-  /** Serialized workflow-specific data */
-  state: T;
-  /** Error message if status is 'failed' */
-  error?: string;
-  started_at: number;
-  updated_at: number;
-  completed_at?: number;
 }
 
 /**
@@ -281,7 +264,6 @@ export async function runWorkflow<T>(
   const run: WorkflowRun<T> = {
     id,
     workflow: workflow.name,
-    agent_id,
     status: "running",
     state,
     started_at,

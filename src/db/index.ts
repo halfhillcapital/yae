@@ -1,2 +1,3 @@
+export * from "./types.ts";
 export * from "./repositories/index.ts";
-export { AgentContext, AdminContext, type User } from "./context.ts";
+export { AgentContext, AdminContext } from "./context.ts";

@@ -15,6 +15,7 @@ import {
   MessagesRepository,
   WorkflowRepository,
 } from "./repositories/index.ts";
+import type { User, UserRole } from "./types.ts";
 
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
@@ -69,14 +70,6 @@ export class AgentContext {
   }
 }
 
-export type User = {
-  id: string;
-  name: string;
-  token: string;
-  role: string;
-  created_at: number;
-};
-
 export class AdminContext {
   private constructor(private readonly db: ReturnType<typeof drizzle>) {}
 
@@ -91,7 +84,7 @@ export class AdminContext {
     return new AdminContext(db);
   }
 
-  async registerUser(name: string, role: string = "user"): Promise<User> {
+  async registerUser(name: string, role: UserRole = "user"): Promise<User> {
     const id = crypto.randomUUID();
     const token = `yae_${crypto.randomUUID().replace(/-/g, "")}`;
     const created_at = Date.now();

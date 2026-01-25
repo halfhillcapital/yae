@@ -4,6 +4,7 @@ import {
   text,
   index,
 } from "drizzle-orm/sqlite-core";
+import type { WorkflowStatus, MessageRole } from "../types";
 
 export const memoryTable = table("memory", {
   id: int().primaryKey({ autoIncrement: true }),
@@ -20,7 +21,7 @@ export const messagesTable = table(
   "messages",
   {
     id: int().primaryKey({ autoIncrement: true }),
-    role: text().notNull(),
+    role: text().notNull().$type<MessageRole>(),
     content: text().notNull(),
     created_at: int().notNull().default(Date.now()),
   },
@@ -32,16 +33,12 @@ export const workflowRunsTable = table(
   {
     id: text().primaryKey(),
     workflow: text().notNull(),
-    agent_id: text().notNull(),
-    status: text().notNull(),
+    status: text().notNull().$type<WorkflowStatus>(),
     state: text().notNull(), // JSON serialized
     error: text(),
     started_at: int().notNull(),
     updated_at: int().notNull(),
     completed_at: int(),
   },
-  (t) => [
-    index("workflow_runs_agent_idx").on(t.agent_id),
-    index("workflow_runs_status_idx").on(t.status),
-  ],
+  (t) => [index("workflow_runs_status_idx").on(t.status)],
 );

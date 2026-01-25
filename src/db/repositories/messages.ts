@@ -1,7 +1,7 @@
 import { asc } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/libsql";
 import { messagesTable } from "../schemas/agent-schema.ts";
-import type { Message } from "baml_client";
+import type { Message } from "../types.ts";
 
 export const MAX_CONVERSATION_HISTORY = 50;
 
@@ -24,6 +24,7 @@ export class MessagesRepository {
     this.prune();
   }
 
+  //TODO: This should be way more advanced with summarization, etc.
   private prune(): void {
     if (this.conversations.length > MAX_CONVERSATION_HISTORY) {
       const excess = this.conversations.length - MAX_CONVERSATION_HISTORY;
@@ -37,8 +38,9 @@ export class MessagesRepository {
       .from(messagesTable)
       .orderBy(asc(messagesTable.created_at));
     this.conversations = rows.map((r) => ({
-      role: r.role as Message["role"],
+      role: r.role,
       content: r.content,
+      created_at: r.created_at,
     }));
   }
 }

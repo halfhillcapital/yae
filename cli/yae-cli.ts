@@ -53,10 +53,13 @@ async function request(
   },
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const url = `${opts.baseUrl}${path}`;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
 
   if (opts.adminToken) headers["Authorization"] = `Bearer ${opts.adminToken}`;
-  else if (opts.userToken) headers["Authorization"] = `Bearer ${opts.userToken}`;
+  else if (opts.userToken)
+    headers["Authorization"] = `Bearer ${opts.userToken}`;
 
   const res = await fetch(url, {
     method,
@@ -125,11 +128,7 @@ async function cmdHealth(baseUrl: string, jsonOut: boolean) {
   else error(`Health check failed (${res.status})`);
 }
 
-async function cmdVerify(
-  token: string,
-  baseUrl: string,
-  jsonOut: boolean,
-) {
+async function cmdVerify(token: string, baseUrl: string, jsonOut: boolean) {
   const res = await request("POST", "/verify", { baseUrl, body: { token } });
   if (jsonOut) return json(res.data);
   const valid = (res.data as { valid?: boolean })?.valid;
@@ -142,18 +141,31 @@ async function cmdUsersList(
   adminToken: string | undefined,
   jsonOut: boolean,
 ) {
-  if (!adminToken) return error("Admin token required. Use --admin or set via 'config set-admin'");
+  if (!adminToken)
+    return error(
+      "Admin token required. Use --admin or set via 'config set-admin'",
+    );
   const res = await request("GET", "/admin/users", { baseUrl, adminToken });
   if (jsonOut) return json(res.data);
-  if (!res.ok) return error(`Failed to list users (${res.status}): ${JSON.stringify(res.data)}`);
+  if (!res.ok)
+    return error(
+      `Failed to list users (${res.status}): ${JSON.stringify(res.data)}`,
+    );
   const users = (res.data as { users?: unknown[] })?.users || [];
   if (users.length === 0) {
     info("No users found");
   } else {
     console.log(`${c.cyan}Users:${c.reset}`);
     for (const u of users) {
-      const user = u as { id?: string; name?: string; role?: string; token?: string };
-      console.log(`  ${c.dim}id:${c.reset} ${user.id}  ${c.dim}name:${c.reset} ${user.name}  ${c.dim}role:${c.reset} ${user.role || "user"}`);
+      const user = u as {
+        id?: string;
+        name?: string;
+        role?: string;
+        token?: string;
+      };
+      console.log(
+        `  ${c.dim}id:${c.reset} ${user.id}  ${c.dim}name:${c.reset} ${user.name}  ${c.dim}role:${c.reset} ${user.role || "user"}`,
+      );
     }
   }
 }
@@ -165,17 +177,31 @@ async function cmdUsersCreate(
   adminToken: string | undefined,
   jsonOut: boolean,
 ) {
-  if (!adminToken) return error("Admin token required. Use --admin or set via 'config set-admin'");
+  if (!adminToken)
+    return error(
+      "Admin token required. Use --admin or set via 'config set-admin'",
+    );
   const body: { name: string; role?: string } = { name };
   if (role) body.role = role;
-  const res = await request("POST", "/admin/users", { baseUrl, adminToken, body });
+  const res = await request("POST", "/admin/users", {
+    baseUrl,
+    adminToken,
+    body,
+  });
   if (jsonOut) return json(res.data);
-  if (!res.ok) return error(`Failed to create user (${res.status}): ${JSON.stringify(res.data)}`);
-  const user = (res.data as { user?: { id?: string; name?: string; token?: string } })?.user;
+  if (!res.ok)
+    return error(
+      `Failed to create user (${res.status}): ${JSON.stringify(res.data)}`,
+    );
+  const user = (
+    res.data as { user?: { id?: string; name?: string; token?: string } }
+  )?.user;
   success(`Created user: ${user?.name} (id: ${user?.id})`);
   if (user?.token) {
     console.log(`  ${c.yellow}Token:${c.reset} ${user.token}`);
-    console.log(`  ${c.dim}Save with: bun run cli config set-user ${user.token}${c.reset}`);
+    console.log(
+      `  ${c.dim}Save with: bun run cli config set-user ${user.token}${c.reset}`,
+    );
   }
 }
 
@@ -185,10 +211,19 @@ async function cmdUsersDelete(
   adminToken: string | undefined,
   jsonOut: boolean,
 ) {
-  if (!adminToken) return error("Admin token required. Use --admin or set via 'config set-admin'");
-  const res = await request("DELETE", `/admin/users/${id}`, { baseUrl, adminToken });
+  if (!adminToken)
+    return error(
+      "Admin token required. Use --admin or set via 'config set-admin'",
+    );
+  const res = await request("DELETE", `/admin/users/${id}`, {
+    baseUrl,
+    adminToken,
+  });
   if (jsonOut) return json(res.data);
-  if (!res.ok) return error(`Failed to delete user (${res.status}): ${JSON.stringify(res.data)}`);
+  if (!res.ok)
+    return error(
+      `Failed to delete user (${res.status}): ${JSON.stringify(res.data)}`,
+    );
   success(`Deleted user ${id}`);
 }
 
@@ -198,12 +233,22 @@ async function cmdChat(
   userToken: string | undefined,
   jsonOut: boolean,
 ) {
-  if (!userToken) return error("User token required. Use --user or set via 'config set-user'");
-  const res = await request("POST", "/chat", { baseUrl, userToken, body: { message } });
+  if (!userToken)
+    return error(
+      "User token required. Use --user or set via 'config set-user'",
+    );
+  const res = await request("POST", "/chat", {
+    baseUrl,
+    userToken,
+    body: { message },
+  });
   if (jsonOut) return json(res.data);
-  if (!res.ok) return error(`Chat failed (${res.status}): ${JSON.stringify(res.data)}`);
+  if (!res.ok)
+    return error(`Chat failed (${res.status}): ${JSON.stringify(res.data)}`);
   console.log(`${c.cyan}Response:${c.reset}`);
-  console.log(typeof res.data === "string" ? res.data : JSON.stringify(res.data, null, 2));
+  console.log(
+    typeof res.data === "string" ? res.data : JSON.stringify(res.data, null, 2),
+  );
 }
 
 function cmdConfigSetAdmin(token: string) {
@@ -224,8 +269,12 @@ function cmdConfigShow() {
   const config = loadConfig();
   console.log(`${c.cyan}Config:${c.reset} ${CONFIG_PATH}`);
   console.log(`  ${c.dim}baseUrl:${c.reset}    ${config.baseUrl}`);
-  console.log(`  ${c.dim}adminToken:${c.reset} ${config.adminToken ? config.adminToken.slice(0, 20) + "..." : "(not set)"}`);
-  console.log(`  ${c.dim}userToken:${c.reset}  ${config.userToken ? config.userToken.slice(0, 20) + "..." : "(not set)"}`);
+  console.log(
+    `  ${c.dim}adminToken:${c.reset} ${config.adminToken ? config.adminToken.slice(0, 20) + "..." : "(not set)"}`,
+  );
+  console.log(
+    `  ${c.dim}userToken:${c.reset}  ${config.userToken ? config.userToken.slice(0, 20) + "..." : "(not set)"}`,
+  );
 }
 
 function printHelp() {
@@ -282,8 +331,15 @@ async function main() {
             await cmdUsersList(baseUrl, adminToken, jsonOut);
             break;
           case "create":
-            if (!rest[0]) return error("Usage: users create <name> [--role <role>]");
-            await cmdUsersCreate(rest[0], flags.role as string, baseUrl, adminToken, jsonOut);
+            if (!rest[0])
+              return error("Usage: users create <name> [--role <role>]");
+            await cmdUsersCreate(
+              rest[0],
+              flags.role as string,
+              baseUrl,
+              adminToken,
+              jsonOut,
+            );
             break;
           case "delete":
             if (!rest[0]) return error("Usage: users delete <id>");
@@ -324,7 +380,9 @@ async function main() {
         printHelp();
     }
   } catch (err) {
-    error(`Request failed: ${err instanceof Error ? err.message : String(err)}`);
+    error(
+      `Request failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
     process.exit(1);
   }
 }

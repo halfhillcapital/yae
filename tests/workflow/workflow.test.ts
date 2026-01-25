@@ -337,7 +337,7 @@ test("Workflow run is persisted to database", async () => {
   expect(run!.state.done).toBe(true);
 
   // Verify history via ctx.workflows
-  const history = await ctx.workflows.listByAgent<SimpleData>("test-agent");
+  const history = await ctx.workflows.listByStatus<SimpleData>("completed");
   expect(history.length).toBeGreaterThan(0);
   expect(history[0]!.id).toBe(result.run);
 });
