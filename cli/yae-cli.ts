@@ -228,7 +228,6 @@ async function cmdUsersDelete(
 }
 
 async function cmdChat(
-  message: string,
   baseUrl: string,
   userToken: string | undefined,
   jsonOut: boolean,
@@ -237,18 +236,53 @@ async function cmdChat(
     return error(
       "User token required. Use --user or set via 'config set-user'",
     );
-  const res = await request("POST", "/chat", {
-    baseUrl,
-    userToken,
-    body: { message },
+
+  const rl = require("readline").createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
-  if (jsonOut) return json(res.data);
-  if (!res.ok)
-    return error(`Chat failed (${res.status}): ${JSON.stringify(res.data)}`);
-  console.log(`${c.cyan}Response:${c.reset}`);
-  console.log(
-    typeof res.data === "string" ? res.data : JSON.stringify(res.data, null, 2),
-  );
+
+  const prompt = () => {
+    rl.question(`${c.green}you>${c.reset} `, async (input: string) => {
+      const message = input.trim();
+
+      if (!message) {
+        prompt();
+        return;
+      }
+
+      if (message === "exit" || message === "quit" || message === "/q") {
+        console.log(`${c.dim}Goodbye!${c.reset}`);
+        rl.close();
+        return;
+      }
+
+      try {
+        const res = await request("POST", "/chat", {
+          baseUrl,
+          userToken,
+          body: { message },
+        });
+
+        if (jsonOut) {
+          json(res.data);
+        } else if (!res.ok) {
+          error(`Chat failed (${res.status}): ${JSON.stringify(res.data)}`);
+        } else {
+          console.log(`${c.cyan}yae>${c.reset}`, typeof res.data === "string" ? res.data : JSON.stringify(res.data, null, 2));
+        }
+      } catch (err) {
+        error(`Request failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+
+      console.log();
+      prompt();
+    });
+  };
+
+  console.log(`${c.dim}Chat with Y.A.E. (type 'exit' or '/q' to quit)${c.reset}`);
+  console.log();
+  prompt();
 }
 
 function cmdConfigSetAdmin(token: string) {
@@ -287,7 +321,7 @@ ${c.yellow}Commands:${c.reset}
   users list                    List all users (admin)
   users create <name> [--role]  Create a user (admin)
   users delete <id>             Delete a user (admin)
-  chat <message>                Send a chat message (user)
+  chat                          Start interactive chat (user)
   config set-admin <token>      Save admin token
   config set-user <token>       Save user token
   config show                   Show current config
@@ -352,8 +386,7 @@ async function main() {
         break;
 
       case "chat":
-        if (!sub) return error("Usage: chat <message>");
-        await cmdChat([sub, ...rest].join(" "), baseUrl, userToken, jsonOut);
+        await cmdChat(baseUrl, userToken, jsonOut);
         break;
 
       case "config":
