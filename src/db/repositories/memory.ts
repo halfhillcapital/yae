@@ -56,90 +56,91 @@ export class MemoryRepository {
     return true;
   }
 
-  //TODO: Refactor out to Tools directory
-  // async toolUpdateMemory(
-  //   label: string,
-  //   oldContent: string,
-  //   newContent: string,
-  // ): Promise<ToolCallResult> {
-  //   const block = this.blocks.get(label);
-  //   const result: ToolCallResult = {
-  //     name: "memory_update",
-  //     status: "failure" as const,
-  //     input: `label: ${label}, old_content: ${oldContent}, new_content: ${newContent}`,
-  //     output: "",
-  //   };
+  async updateMemory(
+    label: string,
+    oldContent: string,
+    newContent: string,
+  ): Promise<{status: "success" | "failure"; output: string}> {
+    const block = this.blocks.get(label);
+    if (!block) return { status: "failure", output: `Memory block with label "${label}" does not exist.` };
 
-  //   if (!block) {
-  //     result.output = `Memory block with label "${label}" does not exist.`;
-  //     return result;
-  //   }
+    if (!block.content.includes(oldContent)) return {
+      status: "failure",
+      output: `The provided oldContent was not found in memory block with label "${label}".
+      Please ensure that oldContent matches exactly what is in the memory block before attempting to update it.`,
+    };
 
-  //   if (!block.content.includes(oldContent)) {
-  //     result.output = `The provided old_content was not found in memory block with label "${label}".
-  //       Please ensure that old_content matches exactly what is in the memory block before attempting to update it.`;
-  //     return result;
-  //   }
+    const updatedContent = block.content.replace(oldContent, newContent);
 
-  //   const updatedContent = block.content.replace(oldContent, newContent);
+    await this.db
+      .update(memoryTable)
+      .set({ content: updatedContent })
+      .where(eq(memoryTable.label, label));
 
-  //   await this.db
-  //     .update(memoryTable)
-  //     .set({ content: updatedContent })
-  //     .where(eq(memoryTable.label, label));
+    block.content = updatedContent;
+    block.updated_at = Date.now();
+    this.blocks.set(label, block);
+    return { 
+      status: "success",
+      output: `The memory block with label ${label} has been edited.
+      Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
+      Edit the memory block again if necessary.`};
+  }
 
-  //   block.content = updatedContent;
-  //   this.blocks.set(label, block);
+  async insertMemory(
+    label: string,
+    content: string,
+    line: number,
+  ): Promise<{status: "success" | "failure"; output: string}> {
+    const block = this.blocks.get(label);
+    if (!block) return { status: "failure", output: `Memory block with label "${label}" does not exist.` };
 
-  //   result.status = "success";
-  //   result.output = `The core memory block with label ${label} has been edited.
-  //     Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
-  //     Edit the memory block again if necessary.`;
-  //   return result;
-  // }
+    const lines = block.content.split("\n");
+    if (line !== -1 && (line < 0 || line > lines.length)) {
+      return {
+        status: "failure",
+        output: `Invalid line number ${line} for memory block with label "${label}". It should be 0-${lines.length} or -1 for end.`,
+      };
+    }
 
-  //TODO: Refactor out to Tools directory
-  // async toolInsertMemory(
-  //   label: string,
-  //   content: string,
-  //   line: number,
-  // ): Promise<ToolCallResult> {
-  //   const block = this.blocks.get(label);
-  //   const result: ToolCallResult = {
-  //     name: "memory_insert",
-  //     status: "failure" as const,
-  //     input: `label: ${label}, content: ${content}, line: ${line}`,
-  //     output: "",
-  //   };
+    if (line === -1) {
+      lines.push(content);
+    } else {
+      lines.splice(line, 0, content);
+    }
+    const updatedContent = lines.join("\n");
 
-  //   if (!block) {
-  //     result.output = `Memory block with label "${label}" does not exist.`;
-  //     return result;
-  //   }
+    await this.db
+      .update(memoryTable)
+      .set({ content: updatedContent })
+      .where(eq(memoryTable.label, label));
 
-  //   const lines = block.content.split("\n");
-  //   if (line < 0 || line > lines.length) {
-  //     result.output = `Invalid line number ${line} for memory block with label "${label}". Parameter line must be between 0 and ${lines.length}.`;
-  //     return result;
-  //   }
+    block.content = updatedContent;
+    block.updated_at = Date.now();
+    this.blocks.set(label, block);
+    return {
+      status: "success",
+      output: `The memory block with label ${label} has been updated with new content at line ${line}.
+      Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
+      Edit the memory block again if necessary.`,
+    };
+  }
 
-  //   lines.splice(line, 0, content);
-  //   const newContent = lines.join("\n");
+  toXML(): string {
+    if (this.blocks.size === 0) {
+      return "";
+    }
 
-  //   await this.db
-  //     .update(memoryTable)
-  //     .set({ content: newContent })
-  //     .where(eq(memoryTable.label, label));
-
-  //   block.content = newContent;
-  //   this.blocks.set(label, block);
-
-  //   result.status = "success";
-  //   result.output = `The core memory block with label ${label} has been edited.
-  //   Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
-  //   Edit the memory block again if necessary.`;
-  //   return result;
-  // }
+    let xml = "<Memory>\n";
+    for (const block of this.blocks.values()) {
+      xml += `  <Block label="${block.label}">\n`;
+      xml += `    <Description>${block.description}</Description>\n`;
+      xml += `    <Content>${block.content}</Content>\n`;
+      xml += `  </Block>\n`;
+    }
+    xml += "</Memory>";
+    return xml;
+  }
 
   private async load() {
     const rows = await this.db.select().from(memoryTable);

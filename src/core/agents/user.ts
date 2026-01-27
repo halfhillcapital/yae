@@ -6,10 +6,36 @@ import type { AgentContext } from "@yae/db";
 import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
 
 import { getCurrentDatetime } from "./utils";
+// import { toolUpdateMemory, toolInsertMemory } from "./tools";
 
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   apiKey: process.env.OPENROUTER_API_KEY,
 };
+
+async function* wrapStream(
+  stream: AsyncIterable<StreamChunk>,
+  agent: UserAgent,
+) {
+  console.log("[wrapStream] generator created, waiting for consumption");
+  let response = "";
+  try {
+    for await (const chunk of stream) {
+      if (chunk.type === "error") {
+        console.error("[chunk error]", JSON.stringify(chunk, null, 2));
+      } else {
+        console.log("[chunk]", chunk.type, chunk.delta?.slice(0, 50));
+      }
+      if (chunk.type === "content") response += chunk.delta ?? "";
+      yield chunk;
+    }
+    console.log("[wrapStream] stream complete, response length:", response.length);
+  } catch (err) {
+    console.error("[wrapStream] error during iteration:", err);
+    throw err;
+  }
+
+  await agent.messages.save({ role: "assistant", content: response });
+}
 
 export class UserAgent {
   constructor(
@@ -57,22 +83,35 @@ export class UserAgent {
     }
   }
 
-  async runAgentTurn(message: string): Promise<AsyncIterable<StreamChunk>> {
+  async runAgentTurn(message: string) {
     await this.messages.save({ role: "user", content: message });
     const userMessages = await this.messages.getAll();
+    const context = await this.buildContext();
 
-    const stream = chat({
-      adapter: openRouterText("tngtech/deepseek-r1t2-chimera:free", DEFAULT_OPENROUTER_CONFIG),
+    // const updateMemory = toolUpdateMemory.server(async ({ label, oldContent, newContent }) => {
+    //   return await this.memory.updateMemory(label, oldContent, newContent);
+    // });
+
+    // const insertMemory = toolInsertMemory.server(async ({ label, content, line }) => {
+    //   return await this.memory.insertMemory(label, content, line);
+    // });
+
+    const stream: AsyncIterable<StreamChunk> = chat({
+      adapter: openRouterText(
+        "tngtech/deepseek-r1t2-chimera:free",
+        DEFAULT_OPENROUTER_CONFIG,
+      ),
       messages: userMessages,
+      systemPrompts: [context],
+      // tools: [updateMemory, insertMemory],
       stream: true,
     });
 
-    return stream;
+    return wrapStream(stream, this);
   }
 
   private async initialState(): Promise<void> {
-    if ((this.memory.has("Persona")) || (this.memory.has("Human")))
-      return;
+    if (this.memory.has("Persona") || this.memory.has("Human")) return;
 
     await this.memory.set(
       "Persona",
@@ -99,5 +138,34 @@ export class UserAgent {
     );
   }
 
-  private async buildContext(): Promise<void> {}
+  private async buildContext(): Promise<string> {
+    const datetime = getCurrentDatetime();
+    const fileTree = await this.files.getFileTree("/");
+
+    return `
+    <Instructions>
+    You are an self-improving agent with advanced memory and file system capabilities.
+
+    You have an advanced memory system that enables you to remember past interactions and continuously improve your own capabilities.
+    Your memory consists of memory blocks and external memory:
+    - <Memory>: Stored as memory blocks, each containing a label (title), description (explaining how this block should influence your behavior), 
+    and content (the actual information). Memory blocks have size limits. Memory blocks are embedded within your system instructions and remain 
+    constantly available in-context.
+    - <Files>: You have access to a file system where you can read and write files. Use this to store and retrieve larger pieces of information
+    that don't fit within your memory blocks. You can create, read, update, and delete files as needed.
+
+    When responding, always consider the relevant information stored in your memory blocks to provide accurate and context-aware responses.
+    </Instructions>
+
+    <Metadata>
+    The current date and time is ${datetime}.
+    </Metadata>
+
+    These memory blocks are currently in your active attention:
+    ${this.memory.toXML()}
+
+    These files are currently stored in your file system:
+    ${fileTree}
+    `.trim();
+  }
 }
