@@ -1,5 +1,7 @@
 import { Elysia, t } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
+import { toServerSentEventsResponse } from "@tanstack/ai";
+
 import { Yae } from "@yae/core";
 import { adminAuth, userAuth } from "./middleware";
 
@@ -82,8 +84,8 @@ export const routes = new Elysia()
       }
 
       try {
-        const result = await agent.runAgentLoop(body.message);
-        return result;
+        const result = await agent.runAgentTurn(body.message);
+        return toServerSentEventsResponse(result);
       } catch (err) {
         console.error("[Chat Error]", err);
         set.status = 500;

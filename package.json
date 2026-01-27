@@ -33,6 +33,8 @@
   "dependencies": {
     "@boundaryml/baml": "latest",
     "@libsql/client": "^0.17.0",
+    "@tanstack/ai": "^0.2.2",
+    "@tanstack/ai-openrouter": "^0.1.0",
     "agentfs-sdk": "^0.5.3",
     "drizzle-orm": "^0.45.1",
     "elysia": "^1.4.22",

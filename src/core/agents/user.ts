@@ -1,12 +1,17 @@
+import { chat, type StreamChunk } from "@tanstack/ai";
+import { openRouterText, type OpenRouterConfig } from "@tanstack/ai-openrouter";
+
 import { Yae } from "@yae/core";
 import type { AgentContext } from "@yae/db";
 import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
 
 import { getCurrentDatetime } from "./utils";
 
-export class UserAgent {
-  private isRunning = false;
+const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
+  apiKey: process.env.OPENROUTER_API_KEY,
+};
 
+export class UserAgent {
   constructor(
     public readonly id: string,
     private readonly ctx: AgentContext,
@@ -52,23 +57,17 @@ export class UserAgent {
     }
   }
 
-  /**
-   * Chat with the agent using a tool-calling loop.
-   * Returns all replies generated during the conversation turn.
-   */
-  async runAgentLoop(message: string): Promise<string> {
-    this.isRunning = true;
-
-    let iterations = 0;
+  async runAgentTurn(message: string): Promise<AsyncIterable<StreamChunk>> {
     await this.messages.save({ role: "user", content: message });
+    const userMessages = await this.messages.getAll();
 
-    //TODO: implement agent loop
-    while (this.isRunning && iterations < 10) {
-      iterations += 1;
-      const context = await this.buildContext();
-    }
+    const stream = chat({
+      adapter: openRouterText("tngtech/deepseek-r1t2-chimera:free", DEFAULT_OPENROUTER_CONFIG),
+      messages: userMessages,
+      stream: true,
+    });
 
-    return "Not implemented yet.";
+    return stream;
   }
 
   private async initialState(): Promise<void> {

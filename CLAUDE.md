@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Y.A.E. is an AI agent framework built with Bun, Elysia (web framework), and Drizzle ORM (SQLite). It provides a graph-based execution engine for building agentic workflows.
+Y.A.E. is an AI agent orchestrator built with Bun, Elysia (web framework), and Drizzle ORM (SQLite). It provides a graph-based execution engine for building agentic workflows.
 
 ## Commands
 
