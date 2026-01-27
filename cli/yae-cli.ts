@@ -2,6 +2,7 @@
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import * as readline from "readline";
 
 // Config types and paths
 interface Config {
@@ -237,7 +238,7 @@ async function cmdChat(
       "User token required. Use --user or set via 'config set-user'",
     );
 
-  const rl = require("readline").createInterface({
+  const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
@@ -269,10 +270,17 @@ async function cmdChat(
         } else if (!res.ok) {
           error(`Chat failed (${res.status}): ${JSON.stringify(res.data)}`);
         } else {
-          console.log(`${c.cyan}yae>${c.reset}`, typeof res.data === "string" ? res.data : JSON.stringify(res.data, null, 2));
+          console.log(
+            `${c.cyan}yae>${c.reset}`,
+            typeof res.data === "string"
+              ? res.data
+              : JSON.stringify(res.data, null, 2),
+          );
         }
       } catch (err) {
-        error(`Request failed: ${err instanceof Error ? err.message : String(err)}`);
+        error(
+          `Request failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
 
       console.log();
@@ -280,7 +288,9 @@ async function cmdChat(
     });
   };
 
-  console.log(`${c.dim}Chat with Y.A.E. (type 'exit' or '/q' to quit)${c.reset}`);
+  console.log(
+    `${c.dim}Chat with Y.A.E. (type 'exit' or '/q' to quit)${c.reset}`,
+  );
   console.log();
   prompt();
 }
