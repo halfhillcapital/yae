@@ -9,12 +9,10 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 
 import * as schema from "./schemas/agent-schema.ts";
 import * as adminSchema from "./schemas/admin-schema.ts";
-import {
-  FileRepository,
-  MemoryRepository,
-  MessagesRepository,
-  WorkflowRepository,
-} from "./repositories/index.ts";
+import { MemoryRepository } from "./repositories/memory.ts";
+import { MessagesRepository } from "./repositories/messages.ts";
+import { FileRepository } from "./repositories/files.ts";
+import { WorkflowRepository } from "./repositories/workflow.ts";
 import type { User, UserRole } from "./types.ts";
 
 async function ensureDir(dir: string) {
