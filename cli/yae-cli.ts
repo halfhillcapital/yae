@@ -228,6 +228,81 @@ async function cmdUsersDelete(
   success(`Deleted user ${id}`);
 }
 
+async function streamChat(
+  baseUrl: string,
+  userToken: string,
+  message: string,
+  jsonOut: boolean,
+): Promise<void> {
+  const url = `${baseUrl}/chat`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${userToken}`,
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    error(`Chat failed (${res.status}): ${text}`);
+    return;
+  }
+
+  if (!res.body) {
+    error("No response body");
+    return;
+  }
+
+  process.stdout.write(`${c.cyan}yae>${c.reset} `);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete SSE events (data: ...\n\n)
+    const lines = buffer.split("\n");
+    buffer = "";
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+
+      // If this is the last line and doesn't end with newline, keep in buffer
+      if (i === lines.length - 1 && line !== "") {
+        buffer = line;
+        break;
+      }
+
+      if (line.startsWith("data: ")) {
+        const data = line.slice(6);
+        if (data === "[DONE]") continue;
+
+        try {
+          const chunk = JSON.parse(data);
+          if (jsonOut) {
+            console.log(JSON.stringify(chunk));
+          } else if (chunk.type === "content" && chunk.delta) {
+            process.stdout.write(chunk.delta);
+          }
+        } catch {
+          // Ignore parse errors for incomplete chunks
+        }
+      }
+    }
+  }
+
+  if (!jsonOut) {
+    console.log(); // newline after response
+  }
+}
+
 async function cmdChat(
   baseUrl: string,
   userToken: string | undefined,
@@ -259,24 +334,7 @@ async function cmdChat(
       }
 
       try {
-        const res = await request("POST", "/chat", {
-          baseUrl,
-          userToken,
-          body: { message },
-        });
-
-        if (jsonOut) {
-          json(res.data);
-        } else if (!res.ok) {
-          error(`Chat failed (${res.status}): ${JSON.stringify(res.data)}`);
-        } else {
-          console.log(
-            `${c.cyan}yae>${c.reset}`,
-            typeof res.data === "string"
-              ? res.data
-              : JSON.stringify(res.data, null, 2),
-          );
-        }
+        await streamChat(baseUrl, userToken, message, jsonOut);
       } catch (err) {
         error(
           `Request failed: ${err instanceof Error ? err.message : String(err)}`,
