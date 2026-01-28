@@ -6,7 +6,7 @@ import type { AgentContext } from "@yae/db";
 import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
 
 import { getCurrentDatetime } from "./utils";
-// import { toolUpdateMemory, toolInsertMemory } from "./tools";
+import { toolUpdateMemory, toolInsertMemory } from "./tools";
 
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -23,12 +23,17 @@ async function* wrapStream(
       if (chunk.type === "error") {
         console.error("[chunk error]", JSON.stringify(chunk, null, 2));
       } else {
-        console.log("[chunk]", chunk.type, chunk.delta?.slice(0, 50));
+        if ("delta" in chunk) {
+          console.log("[chunk]", chunk.type, chunk.delta?.slice(0, 50));
+        }
       }
       if (chunk.type === "content") response += chunk.delta ?? "";
       yield chunk;
     }
-    console.log("[wrapStream] stream complete, response length:", response.length);
+    console.log(
+      "[wrapStream] stream complete, response length:",
+      response.length,
+    );
   } catch (err) {
     console.error("[wrapStream] error during iteration:", err);
     throw err;
@@ -85,25 +90,25 @@ export class UserAgent {
 
   async runAgentTurn(message: string) {
     await this.messages.save({ role: "user", content: message });
-    const userMessages = await this.messages.getAll();
+    const userMessages = this.messages.getAll();
     const context = await this.buildContext();
 
-    // const updateMemory = toolUpdateMemory.server(async ({ label, oldContent, newContent }) => {
-    //   return await this.memory.updateMemory(label, oldContent, newContent);
-    // });
+    const updateMemory = toolUpdateMemory.server(async ({ label, oldContent, newContent }) => {
+      return await this.memory.updateMemory(label, oldContent, newContent);
+    });
 
-    // const insertMemory = toolInsertMemory.server(async ({ label, content, line }) => {
-    //   return await this.memory.insertMemory(label, content, line);
-    // });
+    const insertMemory = toolInsertMemory.server(async ({ label, content, line }) => {
+      return await this.memory.insertMemory(label, content, line);
+    });
 
     const stream: AsyncIterable<StreamChunk> = chat({
       adapter: openRouterText(
-        "tngtech/deepseek-r1t2-chimera:free",
+        "moonshotai/kimi-k2-0905",
         DEFAULT_OPENROUTER_CONFIG,
       ),
       messages: userMessages,
       systemPrompts: [context],
-      // tools: [updateMemory, insertMemory],
+      tools: [updateMemory, insertMemory],
       stream: true,
     });
 
@@ -144,7 +149,7 @@ export class UserAgent {
 
     return `
     <Instructions>
-    You are an self-improving agent with advanced memory and file system capabilities.
+    You are a self-improving agent with advanced memory and file system capabilities.
 
     You have an advanced memory system that enables you to remember past interactions and continuously improve your own capabilities.
     Your memory consists of memory blocks and external memory:

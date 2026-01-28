@@ -60,15 +60,20 @@ export class MemoryRepository {
     label: string,
     oldContent: string,
     newContent: string,
-  ): Promise<{status: "success" | "failure"; output: string}> {
+  ): Promise<{ status: "success" | "failure"; output: string }> {
     const block = this.blocks.get(label);
-    if (!block) return { status: "failure", output: `Memory block with label "${label}" does not exist.` };
+    if (!block)
+      return {
+        status: "failure",
+        output: `Memory block with label "${label}" does not exist.`,
+      };
 
-    if (!block.content.includes(oldContent)) return {
-      status: "failure",
-      output: `The provided oldContent was not found in memory block with label "${label}".
+    if (!block.content.includes(oldContent))
+      return {
+        status: "failure",
+        output: `The provided oldContent was not found in memory block with label "${label}".
       Please ensure that oldContent matches exactly what is in the memory block before attempting to update it.`,
-    };
+      };
 
     const updatedContent = block.content.replace(oldContent, newContent);
 
@@ -80,20 +85,25 @@ export class MemoryRepository {
     block.content = updatedContent;
     block.updated_at = Date.now();
     this.blocks.set(label, block);
-    return { 
+    return {
       status: "success",
       output: `The memory block with label ${label} has been edited.
       Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
-      Edit the memory block again if necessary.`};
+      Edit the memory block again if necessary.`,
+    };
   }
 
   async insertMemory(
     label: string,
     content: string,
     line: number,
-  ): Promise<{status: "success" | "failure"; output: string}> {
+  ): Promise<{ status: "success" | "failure"; output: string }> {
     const block = this.blocks.get(label);
-    if (!block) return { status: "failure", output: `Memory block with label "${label}" does not exist.` };
+    if (!block)
+      return {
+        status: "failure",
+        output: `Memory block with label "${label}" does not exist.`,
+      };
 
     const lines = block.content.split("\n");
     if (line !== -1 && (line < 0 || line > lines.length)) {
