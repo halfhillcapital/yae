@@ -56,7 +56,7 @@ export const routes = new Elysia()
         {
           body: t.Object({
             name: t.String(),
-            role: t.Optional(t.String()),
+            role: t.Optional(t.Union([t.Literal("user"), t.Literal("admin")])),
           }),
         },
       )

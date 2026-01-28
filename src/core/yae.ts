@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { DATA_DIR, AGENTS_DB_DIR } from "./constants.ts";
-import { AgentContext, AdminContext, type User } from "@yae/db";
+import { AgentContext, AdminContext, type User, type UserRole } from "@yae/db";
 import { UserAgent, WorkerAgent } from "./agents";
 
 export type HealthStatus = {
@@ -134,7 +134,7 @@ export class Yae {
   // User Management (via AdminContext)
   // ─────────────────────────────────────────────────────────────
 
-  async registerUser(name: string, role: string = "user"): Promise<User> {
+  async registerUser(name: string, role: UserRole = "user"): Promise<User> {
     return this.admin.registerUser(name, role);
   }
 
