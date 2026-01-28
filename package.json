@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@standard-schema/spec": "^1.1.0",
     "@types/bun": "latest",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.2",
@@ -38,6 +39,7 @@
     "agentfs-sdk": "^0.5.3",
     "drizzle-orm": "^0.45.1",
     "elysia": "^1.4.22",
-    "elysia-rate-limit": "^4.4.2"
+    "elysia-rate-limit": "^4.4.2",
+    "zod": "^4.3.6"
   }
 }
