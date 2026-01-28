@@ -93,13 +93,37 @@ export class UserAgent {
     const userMessages = this.messages.getAll();
     const context = await this.buildContext();
 
-    const updateMemory = toolUpdateMemory.server(async ({ label, oldContent, newContent }) => {
-      return await this.memory.updateMemory(label, oldContent, newContent);
-    });
+    const updateMemory = toolUpdateMemory.server(
+      async ({ label, oldContent, newContent }) => {
+        const startedAt = Date.now() / 1000;
+        const result = await this.memory.updateMemory(
+          label,
+          oldContent,
+          newContent,
+        );
+        await this.files.recordToolCall(
+          toolUpdateMemory.name,
+          startedAt,
+          { label, oldContent, newContent },
+          result,
+        );
+        return result;
+      },
+    );
 
-    const insertMemory = toolInsertMemory.server(async ({ label, content, line }) => {
-      return await this.memory.insertMemory(label, content, line);
-    });
+    const insertMemory = toolInsertMemory.server(
+      async ({ label, content, line }) => {
+        const startedAt = Date.now() / 1000;
+        const result = await this.memory.insertMemory(label, content, line);
+        await this.files.recordToolCall(
+          toolInsertMemory.name,
+          startedAt,
+          { label, content, line },
+          result,
+        );
+        return result;
+      },
+    );
 
     const stream: AsyncIterable<StreamChunk> = chat({
       adapter: openRouterText(
@@ -115,6 +139,7 @@ export class UserAgent {
     return wrapStream(stream, this);
   }
 
+  //TODO: Fix the formatting to remove unneeded spaces and newlines
   private async initialState(): Promise<void> {
     if (this.memory.has("Persona") || this.memory.has("Human")) return;
 
