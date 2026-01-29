@@ -74,24 +74,6 @@ export class FileRepository {
     }
   }
 
-  async recordToolCall(
-    name: string,
-    startedAt: number,
-    parameters?: unknown,
-    result?: unknown,
-    error?: string,
-  ): Promise<number> {
-    const id = await this.client.tools.record(
-      name,
-      startedAt,
-      Date.now() / 1000,
-      parameters,
-      result,
-      error,
-    );
-    return id;
-  }
-
   async getFileTree(path: string, indent = "", isRoot = true): Promise<string> {
     let tree = "";
     const entries = await this.client.fs.readdirPlus(path);

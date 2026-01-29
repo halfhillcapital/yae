@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { toolDefinition } from "@tanstack/ai";
 
-export const toolUpdateMemory = toolDefinition({
-  name: "memory_update",
-  description:
-    "Use this tool to replace a specific string in a memory block with a new string.",
+export const toolReplaceMemoryDef = toolDefinition({
+  name: "memory_replace",
+  description: `Use this tool to replace a specific string in a memory block with a new string. This is used for making precise edits.
+    Do NOT attempt to replace long strings, e.g. do not attempt to replace the entire contents of a memory block with a new string.`,
   inputSchema: z.object({
     label: z
       .string()
@@ -12,7 +12,7 @@ export const toolUpdateMemory = toolDefinition({
     oldContent: z
       .string()
       .describe(
-        "The exact string in the memory block that needs to be replaced.",
+        "The string to replace (must match exactly, including whitespace and indentation).",
       ),
     newContent: z
       .string()
@@ -30,17 +30,17 @@ export const toolUpdateMemory = toolDefinition({
   }),
 });
 
-export const toolInsertMemory = toolDefinition({
+export const toolInsertMemoryDef = toolDefinition({
   name: "memory_insert",
   description:
-    "Use this tool to insert text at a specific location in a memory block.",
+    "Use this tool to insert content at a specific location in a memory block.",
   inputSchema: z.object({
     label: z
       .string()
       .describe("Section of the memory to be edited, identified by its label."),
     content: z
       .string()
-      .describe("The text content to insert into the memory block."),
+      .describe("The content to insert into the memory block."),
     line: z
       .number()
       .describe(

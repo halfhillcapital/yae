@@ -6,7 +6,11 @@ import type { AgentContext } from "@yae/db";
 import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
 
 import { getCurrentDatetime } from "./utils";
-import { toolUpdateMemory, toolInsertMemory } from "./tools";
+import {
+  toolReplaceMemoryDef,
+  toolInsertMemoryDef,
+  toolSearchTavily,
+} from "./tools";
 
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -16,24 +20,14 @@ async function* wrapStream(
   stream: AsyncIterable<StreamChunk>,
   agent: UserAgent,
 ) {
-  console.log("[wrapStream] generator created, waiting for consumption");
   let response = "";
   try {
     for await (const chunk of stream) {
-      if (chunk.type === "error") {
+      if (chunk.type === "error")
         console.error("[chunk error]", JSON.stringify(chunk, null, 2));
-      } else {
-        if ("delta" in chunk) {
-          console.log("[chunk]", chunk.type, chunk.delta?.slice(0, 50));
-        }
-      }
       if (chunk.type === "content") response += chunk.delta ?? "";
       yield chunk;
     }
-    console.log(
-      "[wrapStream] stream complete, response length:",
-      response.length,
-    );
   } catch (err) {
     console.error("[wrapStream] error during iteration:", err);
     throw err;
@@ -93,46 +87,32 @@ export class UserAgent {
     const userMessages = this.messages.getAll();
     const context = await this.buildContext();
 
-    const updateMemory = toolUpdateMemory.server(
+    const toolReplaceMemory = toolReplaceMemoryDef.server(
       async ({ label, oldContent, newContent }) => {
-        const startedAt = Date.now() / 1000;
         const result = await this.memory.updateMemory(
           label,
           oldContent,
           newContent,
         );
-        await this.files.recordToolCall(
-          toolUpdateMemory.name,
-          startedAt,
-          { label, oldContent, newContent },
-          result,
-        );
         return result;
       },
     );
 
-    const insertMemory = toolInsertMemory.server(
+    const toolInsertMemory = toolInsertMemoryDef.server(
       async ({ label, content, line }) => {
-        const startedAt = Date.now() / 1000;
         const result = await this.memory.insertMemory(label, content, line);
-        await this.files.recordToolCall(
-          toolInsertMemory.name,
-          startedAt,
-          { label, content, line },
-          result,
-        );
         return result;
       },
     );
 
     const stream: AsyncIterable<StreamChunk> = chat({
       adapter: openRouterText(
-        "moonshotai/kimi-k2-0905",
+        "google/gemini-3-flash-preview",
         DEFAULT_OPENROUTER_CONFIG,
       ),
       messages: userMessages,
       systemPrompts: [context],
-      tools: [updateMemory, insertMemory],
+      tools: [toolReplaceMemory, toolInsertMemory, toolSearchTavily],
       stream: true,
     });
 
