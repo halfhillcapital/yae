@@ -14,7 +14,6 @@
     "baml-generate": "baml-cli generate"
   },
   "dependencies": {
-    "@boundaryml/baml": "latest",
     "@libsql/client": "latest",
     "@tanstack/ai": "latest",
     "@tanstack/ai-openrouter": "latest",
