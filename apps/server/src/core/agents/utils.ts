@@ -26,6 +26,7 @@ export function getCurrentDatetime(date: Date = new Date()): string {
     "December",
   ];
   const month = monthNames[date.getMonth()];
+  const year = date.getFullYear();
 
   let hours = date.getHours();
   const minutes = date.getMinutes().toString().padStart(2, "0");
@@ -34,5 +35,5 @@ export function getCurrentDatetime(date: Date = new Date()): string {
   hours = hours % 12;
   hours = hours ? hours : 12;
 
-  return `${dayOfWeek} ${day} ${month} ${hours}:${minutes} ${ampm}`;
+  return `${dayOfWeek} ${day} ${month} ${year} ${hours}:${minutes} ${ampm}`;
 }
