@@ -1,4 +1,4 @@
-import { chat, type ServerTool, type StreamChunk } from "@tanstack/ai";
+import { chat, type ServerTool, type AGUIEvent } from "@tanstack/ai";
 import { openRouterText, type OpenRouterConfig } from "@tanstack/ai-openrouter";
 
 import { Yae } from "@yae/core";
@@ -20,15 +20,15 @@ const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
 };
 
 async function* wrapStream(
-  stream: AsyncIterable<StreamChunk>,
+  stream: AsyncIterable<AGUIEvent>,
   agent: UserAgent,
 ) {
   let response = "";
   try {
     for await (const chunk of stream) {
-      if (chunk.type === "error")
+      if (chunk.type === "RUN_ERROR")
         console.error("[chunk error]", JSON.stringify(chunk, null, 2));
-      if (chunk.type === "content") response += chunk.delta ?? "";
+      if (chunk.type === "TEXT_MESSAGE_CONTENT") response += chunk.delta ?? "";
       yield chunk;
     }
   } catch (err) {
@@ -93,7 +93,7 @@ export class UserAgent {
     const userMessages = this.messages.getAll();
     const context = await this.buildContext();
 
-    const stream: AsyncIterable<StreamChunk> = chat({
+    const stream: AsyncIterable<AGUIEvent> = chat({
       adapter: openRouterText(
         "google/gemini-3-flash-preview",
         DEFAULT_OPENROUTER_CONFIG,

@@ -288,7 +288,7 @@ async function streamChat(
           const chunk = JSON.parse(data);
           if (jsonOut) {
             console.log(JSON.stringify(chunk));
-          } else if (chunk.type === "content" && chunk.delta) {
+          } else if (chunk.type === "TEXT_MESSAGE_CONTENT" && chunk.delta) {
             process.stdout.write(chunk.delta);
           }
         } catch {
