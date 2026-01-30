@@ -1,6 +1,7 @@
 {
   "name": "yae-monorepo",
   "private": true,
+  "type": "module",
   "packageManager": "bun@1.3.5",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
