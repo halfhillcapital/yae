@@ -9,7 +9,7 @@
     "dev": "turbo dev",
     "start": "turbo start",
     "start:server": "turbo start --filter=@yae/server",
-    "cli": "turbo cli --filter=@yae/cli",
+    "cli": "bun --filter=@yae/cli cli",
     "lint": "turbo lint",
     "format": "prettier . --write",
     "test": "turbo test"
