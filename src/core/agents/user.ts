@@ -1,4 +1,4 @@
-import { chat, type StreamChunk } from "@tanstack/ai";
+import { chat, type ServerTool, type StreamChunk } from "@tanstack/ai";
 import { openRouterText, type OpenRouterConfig } from "@tanstack/ai-openrouter";
 
 import { Yae } from "@yae/core";
@@ -9,7 +9,10 @@ import { getCurrentDatetime } from "./utils";
 import {
   toolReplaceMemoryDef,
   toolInsertMemoryDef,
-  toolSearchTavily,
+  toolSearchLinkupDef,
+  toolFetchLinkupDef,
+  fetchLinkup,
+  searchLinkup,
 } from "./tools";
 
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
@@ -37,11 +40,14 @@ async function* wrapStream(
 }
 
 export class UserAgent {
+  private tools: Array<ServerTool> = [];
+
   constructor(
     public readonly id: string,
     private readonly ctx: AgentContext,
   ) {
-    this.initialState();
+    this.initState();
+    this.initTools();
   }
 
   get memory() {
@@ -87,24 +93,6 @@ export class UserAgent {
     const userMessages = this.messages.getAll();
     const context = await this.buildContext();
 
-    const toolReplaceMemory = toolReplaceMemoryDef.server(
-      async ({ label, oldContent, newContent }) => {
-        const result = await this.memory.updateMemory(
-          label,
-          oldContent,
-          newContent,
-        );
-        return result;
-      },
-    );
-
-    const toolInsertMemory = toolInsertMemoryDef.server(
-      async ({ label, content, line }) => {
-        const result = await this.memory.insertMemory(label, content, line);
-        return result;
-      },
-    );
-
     const stream: AsyncIterable<StreamChunk> = chat({
       adapter: openRouterText(
         "google/gemini-3-flash-preview",
@@ -112,7 +100,7 @@ export class UserAgent {
       ),
       messages: userMessages,
       systemPrompts: [context],
-      tools: [toolReplaceMemory, toolInsertMemory, toolSearchTavily],
+      tools: this.tools,
       stream: true,
     });
 
@@ -120,7 +108,7 @@ export class UserAgent {
   }
 
   //TODO: Fix the formatting to remove unneeded spaces and newlines
-  private async initialState(): Promise<void> {
+  private async initState(): Promise<void> {
     if (this.memory.has("Persona") || this.memory.has("Human")) return;
 
     await this.memory.set(
@@ -146,6 +134,74 @@ export class UserAgent {
       learn more about them.
       `.trim(),
     );
+  }
+
+  private async initTools(): Promise<void> {
+    const toolReplaceMemory = toolReplaceMemoryDef.server(
+      async ({ label, oldContent, newContent }) => {
+        let toolId = 0;
+        try {
+          toolId = await this.files.toolPending("memory_replace", { label, oldContent, newContent });
+          const result = await this.memory.updateMemory(
+            label,
+            oldContent,
+            newContent,
+          );
+          await this.files.toolSuccess(toolId, result);
+          return result;
+        } catch (error) {
+          await this.files.toolFailure(toolId, `${error}`);
+          throw error;
+        }
+      },
+    );
+
+    const toolInsertMemory = toolInsertMemoryDef.server(
+      async ({ label, content, line }) => {
+        let toolId = 0;
+        try {
+          toolId = await this.files.toolPending("memory_insert", { label, content, line });
+          const result = await this.memory.insertMemory(label, content, line);
+          await this.files.toolSuccess(toolId, result);
+          return result;
+        } catch (error) {
+          await this.files.toolFailure(toolId, `${error}`);
+          throw error;
+        }
+      },
+    );
+
+    const toolSearchLinkup = toolSearchLinkupDef.server(
+      async ({ query, depth }) => {
+        let toolId = 0;
+        try {
+          toolId = await this.files.toolPending("search_linkup", { query, depth });
+          const searchResults = await searchLinkup(query, depth);
+          await this.files.toolSuccess(toolId, searchResults);
+          return searchResults;
+        } catch (error) {
+          await this.files.toolFailure(toolId, `${error}`);
+          throw error;
+        }
+      },
+    );
+
+    const toolFetchLinkup = toolFetchLinkupDef.server(
+      async ({ url, renderJs }) => {
+        let toolId = 0;
+        try {
+          toolId = await this.files.toolPending("fetch_linkup", { url, renderJs });
+          const fetchResult = await fetchLinkup(url, renderJs);
+          await this.files.toolSuccess(toolId, fetchResult);
+          return fetchResult;
+        } catch (error) {
+          await this.files.toolFailure(toolId, `${error}`);
+          throw error;
+        }
+      },
+    );
+
+    this.tools.push(toolReplaceMemory, toolInsertMemory, toolSearchLinkup, toolFetchLinkup);
   }
 
   private async buildContext(): Promise<string> {

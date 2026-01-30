@@ -37,7 +37,7 @@ const tavilySearchResultSchema = z.object({
     .describe("List of search results."),
 });
 
-const toolSearchTavilyDef = toolDefinition({
+export const toolSearchTavilyDef = toolDefinition({
   name: "search_tavily",
   description: `Search the web for current information on any topic. Use for news, facts, or data beyond your knowledge cutoff. 
     Returns a generated answer and a list of search results.`,
@@ -47,22 +47,11 @@ const toolSearchTavilyDef = toolDefinition({
 
 type TavilySearchResult = z.infer<typeof tavilySearchResultSchema>;
 
-export const toolSearchTavily = toolSearchTavilyDef.server(
-  async ({ query, depth, topic }) => {
-    const searchResults = (await searchTavily(
-      query,
-      depth,
-      topic,
-    )) as TavilySearchResult;
-    return searchResults;
-  },
-);
-
 export async function searchTavily(
   query: string,
   depth: "basic" | "advanced",
   topic: "general" | "news" | "finance",
-) {
+): Promise<TavilySearchResult> {
   const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
@@ -83,7 +72,7 @@ export async function searchTavily(
     );
   }
 
-  return await response.json();
+  return await response.json() as TavilySearchResult;
 }
 
 // ============================================================================
@@ -131,7 +120,7 @@ const linkupFetchResultSchema = z.object({
 type LinkupFetchResult = z.infer<typeof linkupFetchResultSchema>;
 type LinkupSearchResult = z.infer<typeof linkupSearchResultSchema>;
 
-const toolSearchLinkupDef = toolDefinition({
+export const toolSearchLinkupDef = toolDefinition({
   name: "search_linkup",
   description:
     "Search the web for current information on any topic. Use for news, facts, or data beyond your knowledge cutoff. Returns a generated answer and a list of search results.",
@@ -139,7 +128,7 @@ const toolSearchLinkupDef = toolDefinition({
   outputSchema: linkupSearchResultSchema,
 });
 
-const toolFetchLinkupDef = toolDefinition({
+export const toolFetchLinkupDef = toolDefinition({
   name: "fetch_linkup",
   description:
     "Fetch the content of a webpage. Optionally render JavaScript on the page. Returns the content in markdown format.",
@@ -147,7 +136,7 @@ const toolFetchLinkupDef = toolDefinition({
   outputSchema: linkupFetchResultSchema,
 });
 
-export async function searchLinkup(query: string, depth: "standard" | "deep") {
+export async function searchLinkup(query: string, depth: "standard" | "deep"): Promise<LinkupSearchResult> {
   const response = await fetch("https://api.linkup.so/v1/search", {
     method: "POST",
     headers: {
@@ -169,20 +158,10 @@ export async function searchLinkup(query: string, depth: "standard" | "deep") {
     );
   }
 
-  return await response.json();
+  return await response.json() as LinkupSearchResult;
 }
 
-export const toolSearchLinkup = toolSearchLinkupDef.server(
-  async ({ query, depth }) => {
-    const searchResults = (await searchLinkup(
-      query,
-      depth,
-    )) as LinkupSearchResult;
-    return searchResults;
-  },
-);
-
-export async function fetchLinkup(url: string, renderJs: boolean = false) {
+export async function fetchLinkup(url: string, renderJs: boolean = false): Promise<LinkupFetchResult> {
   const response = await fetch("https://api.linkup.so/v1/fetch", {
     method: "POST",
     headers: {
@@ -203,12 +182,5 @@ export async function fetchLinkup(url: string, renderJs: boolean = false) {
     );
   }
 
-  return await response.json();
+  return await response.json() as LinkupFetchResult;
 }
-
-export const toolFetchLinkup = toolFetchLinkupDef.server(
-  async ({ url, renderJs }) => {
-    const fetchResult = (await fetchLinkup(url, renderJs)) as LinkupFetchResult;
-    return fetchResult;
-  },
-);

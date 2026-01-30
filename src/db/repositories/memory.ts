@@ -60,20 +60,14 @@ export class MemoryRepository {
     label: string,
     oldContent: string,
     newContent: string,
-  ): Promise<{ status: "success" | "failure"; output: string }> {
+  ): Promise<string> {
     const block = this.blocks.get(label);
     if (!block)
-      return {
-        status: "failure",
-        output: `Memory block with label "${label}" does not exist.`,
-      };
+      throw new Error(`Memory block with label "${label}" does not exist.`);
 
     if (!block.content.includes(oldContent))
-      return {
-        status: "failure",
-        output: `The provided oldContent was not found in memory block with label "${label}".
-      Please ensure that oldContent matches exactly what is in the memory block before attempting to update it.`,
-      };
+      throw new Error(`The provided oldContent was not found in memory block with label "${label}".
+      Please ensure that oldContent matches exactly what is in the memory block before attempting to update it.`);
 
     const updatedContent = block.content.replace(oldContent, newContent);
 
@@ -85,33 +79,25 @@ export class MemoryRepository {
     block.content = updatedContent;
     block.updated_at = Date.now();
     this.blocks.set(label, block);
-    return {
-      status: "success",
-      output: `The memory block with label ${label} has been edited.
+    return `The memory block with label ${label} has been edited.
       Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
-      Edit the memory block again if necessary.`,
-    };
+      Edit the memory block again if necessary.`;
   }
 
   async insertMemory(
     label: string,
     content: string,
     line: number,
-  ): Promise<{ status: "success" | "failure"; output: string }> {
+  ): Promise<string> {
     const block = this.blocks.get(label);
     if (!block)
-      return {
-        status: "failure",
-        output: `Memory block with label "${label}" does not exist.`,
-      };
+      throw new Error(`Memory block with label "${label}" does not exist.`);
 
     const lines = block.content.split("\n");
-    if (line !== -1 && (line < 0 || line > lines.length)) {
-      return {
-        status: "failure",
-        output: `Invalid line number ${line} for memory block with label "${label}". It should be 0-${lines.length} or -1 for end.`,
-      };
-    }
+    if (line !== -1 && (line < 0 || line > lines.length))
+      throw new Error(
+        `Invalid line number ${line} for memory block with label "${label}". It should be 0-${lines.length} or -1 for end.`,
+      );
 
     if (line === -1) {
       lines.push(content);
@@ -128,12 +114,9 @@ export class MemoryRepository {
     block.content = updatedContent;
     block.updated_at = Date.now();
     this.blocks.set(label, block);
-    return {
-      status: "success",
-      output: `The memory block with label ${label} has been updated with new content at line ${line}.
-      Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
-      Edit the memory block again if necessary.`,
-    };
+    return `The memory block with label ${label} has been updated with new content at line ${line}.
+    Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
+    Edit the memory block again if necessary.`;
   }
 
   toXML(): string {

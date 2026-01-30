@@ -65,6 +65,18 @@ export class FileRepository {
     return this.client.fs.stat(path);
   }
 
+  async toolPending(name: string, parameters?: unknown): Promise<number> {
+    return this.client.tools.start(name, parameters);
+  }
+
+  async toolSuccess(id: number, result?: unknown): Promise<void> {
+    return this.client.tools.success(id, result);
+  }
+
+  async toolFailure(id: number, error: string): Promise<void> {
+    return this.client.tools.error(id, error);
+  }
+
   async exists(path: string): Promise<boolean> {
     try {
       await this.client.fs.access(path);
