@@ -52,7 +52,10 @@ export class AgentContext {
       url: inMemory ? dbPath : `file:${path}`,
     });
     const db = drizzle(client, { schema });
-    await migrate(db, { migrationsFolder: "./drizzle/agent" });
+    await migrate(db, {
+      migrationsFolder: "./drizzle/agent",
+      migrationsTable: "__drizzle_migrations_agent",
+    });
 
     const ctx = new AgentContext(agentId, db, fs);
 
@@ -77,7 +80,10 @@ export class AdminContext {
 
     const client = createClient({ url: `file:${dbPath}` });
     const db = drizzle(client, { schema: adminSchema });
-    await migrate(db, { migrationsFolder: "./drizzle/admin" });
+    await migrate(db, {
+      migrationsFolder: "./drizzle/admin",
+      migrationsTable: "__drizzle_migrations_admin",
+    });
 
     return new AdminContext(db);
   }

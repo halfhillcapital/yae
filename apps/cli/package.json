@@ -1,0 +1,10 @@
+{
+  "name": "@yae/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "cli": "bun src/yae-cli.ts",
+    "lint": "eslint ."
+  }
+}

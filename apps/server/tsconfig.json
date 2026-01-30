@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@yae/db/*": ["./src/db/*"],
+      "@yae/db": ["./src/db"],
+      "@yae/core/*": ["./src/core/*"],
+      "@yae/core": ["./src/core"],
+      "@yae/api/*": ["./src/api/*"],
+      "@yae/api": ["./src/api"]
+    }
+  }
+}
