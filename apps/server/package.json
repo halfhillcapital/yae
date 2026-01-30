@@ -10,8 +10,7 @@
     "lint": "eslint .",
     "db:generate:agent": "drizzle-kit generate --config drizzle-agent.config.ts",
     "db:generate:admin": "drizzle-kit generate --config drizzle-admin.config.ts",
-    "db:studio": "drizzle-kit studio",
-    "baml-generate": "baml-cli generate"
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@libsql/client": "latest",
