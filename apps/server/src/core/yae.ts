@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { DATA_DIR, AGENTS_DB_DIR } from "./constants.ts";
+import { DATA_DIR, AGENTS_DB_DIR } from "../constants.ts";
 import { AgentContext, AdminContext, type User, type UserRole } from "@yae/db";
 import { UserAgent, WorkerAgent } from "./agents";
 
@@ -108,7 +108,11 @@ export class Yae {
 
   async createUserAgent(userId: string): Promise<UserAgent> {
     const existing = this.userAgents.get(userId);
-    if (existing) return existing;
+    if (existing) {
+      console.log(`[Yae] Reusing existing agent for user ${userId}`);
+      return existing;
+    }
+    console.log(`[Yae] Creating new agent for user ${userId}`);
 
     const agentId = `agent_${userId}`;
     const ctx = await AgentContext.create(agentId, AGENTS_DB_DIR);

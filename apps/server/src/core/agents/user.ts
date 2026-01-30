@@ -19,10 +19,7 @@ const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   apiKey: process.env.OPENROUTER_API_KEY,
 };
 
-async function* wrapStream(
-  stream: AsyncIterable<AGUIEvent>,
-  agent: UserAgent,
-) {
+async function* wrapStream(stream: AsyncIterable<AGUIEvent>, agent: UserAgent) {
   let response = "";
   try {
     for await (const chunk of stream) {
@@ -94,10 +91,7 @@ export class UserAgent {
     const context = await this.buildContext();
 
     const stream: AsyncIterable<AGUIEvent> = chat({
-      adapter: openRouterText(
-        "google/gemini-3-flash-preview",
-        DEFAULT_OPENROUTER_CONFIG,
-      ),
+      adapter: openRouterText("openai/gpt-4o-mini", DEFAULT_OPENROUTER_CONFIG),
       messages: userMessages,
       systemPrompts: [context],
       tools: this.tools,
@@ -141,8 +135,12 @@ export class UserAgent {
       async ({ label, oldContent, newContent }) => {
         let toolId = 0;
         try {
-          toolId = await this.files.toolPending("memory_replace", { label, oldContent, newContent });
-          const result = await this.memory.updateMemory(
+          toolId = await this.files.toolPending("memory_replace", {
+            label,
+            oldContent,
+            newContent,
+          });
+          const result = await this.memory.replaceMemory(
             label,
             oldContent,
             newContent,
@@ -160,7 +158,11 @@ export class UserAgent {
       async ({ label, content, line }) => {
         let toolId = 0;
         try {
-          toolId = await this.files.toolPending("memory_insert", { label, content, line });
+          toolId = await this.files.toolPending("memory_insert", {
+            label,
+            content,
+            line,
+          });
           const result = await this.memory.insertMemory(label, content, line);
           await this.files.toolSuccess(toolId, result);
           return result;
@@ -175,7 +177,10 @@ export class UserAgent {
       async ({ query, depth }) => {
         let toolId = 0;
         try {
-          toolId = await this.files.toolPending("search_linkup", { query, depth });
+          toolId = await this.files.toolPending("search_linkup", {
+            query,
+            depth,
+          });
           const searchResults = await searchLinkup(query, depth);
           await this.files.toolSuccess(toolId, searchResults);
           return searchResults;
@@ -190,7 +195,10 @@ export class UserAgent {
       async ({ url, renderJs }) => {
         let toolId = 0;
         try {
-          toolId = await this.files.toolPending("fetch_linkup", { url, renderJs });
+          toolId = await this.files.toolPending("fetch_linkup", {
+            url,
+            renderJs,
+          });
           const fetchResult = await fetchLinkup(url, renderJs);
           await this.files.toolSuccess(toolId, fetchResult);
           return fetchResult;
@@ -201,7 +209,12 @@ export class UserAgent {
       },
     );
 
-    this.tools.push(toolReplaceMemory, toolInsertMemory, toolSearchLinkup, toolFetchLinkup);
+    this.tools.push(
+      toolReplaceMemory,
+      toolInsertMemory,
+      toolSearchLinkup,
+      toolFetchLinkup,
+    );
   }
 
   private async buildContext(): Promise<string> {

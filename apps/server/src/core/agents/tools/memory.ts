@@ -20,7 +20,9 @@ export const toolReplaceMemoryDef = toolDefinition({
         "The new string that will replace the old content in the memory block.",
       ),
   }),
-  outputSchema: z.string().describe("A message describing the result of the operation."),
+  outputSchema: z
+    .string()
+    .describe("A message describing the result of the operation."),
 });
 
 export const toolInsertMemoryDef = toolDefinition({
@@ -40,5 +42,7 @@ export const toolInsertMemoryDef = toolDefinition({
         "The line number at which to insert the content (0-based). Use 0 to insert at the beginning and -1 to insert at the end.",
       ),
   }),
-  outputSchema: z.string().describe("A message describing the result of the operation."),
+  outputSchema: z
+    .string()
+    .describe("A message describing the result of the operation."),
 });

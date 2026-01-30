@@ -6,9 +6,7 @@ import type { Memory } from "../types.ts";
 export class MemoryRepository {
   private blocks: Map<string, Memory> = new Map();
 
-  constructor(private readonly db: ReturnType<typeof drizzle>) {
-    this.load();
-  }
+  constructor(private readonly db: ReturnType<typeof drizzle>) {}
 
   has(label: string): boolean {
     return this.blocks.has(label);
@@ -56,7 +54,7 @@ export class MemoryRepository {
     return true;
   }
 
-  async updateMemory(
+  async replaceMemory(
     label: string,
     oldContent: string,
     newContent: string,
@@ -80,8 +78,8 @@ export class MemoryRepository {
     block.updated_at = Date.now();
     this.blocks.set(label, block);
     return `The memory block with label ${label} has been edited.
-      Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
-      Edit the memory block again if necessary.`;
+    Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
+    Edit the memory block again if necessary.`;
   }
 
   async insertMemory(
@@ -135,7 +133,7 @@ export class MemoryRepository {
     return xml;
   }
 
-  private async load() {
+  async load() {
     const rows = await this.db.select().from(memoryTable);
     this.blocks.clear();
     for (const row of rows) {

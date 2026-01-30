@@ -72,7 +72,7 @@ export async function searchTavily(
     );
   }
 
-  return await response.json() as TavilySearchResult;
+  return (await response.json()) as TavilySearchResult;
 }
 
 // ============================================================================
@@ -136,7 +136,10 @@ export const toolFetchLinkupDef = toolDefinition({
   outputSchema: linkupFetchResultSchema,
 });
 
-export async function searchLinkup(query: string, depth: "standard" | "deep"): Promise<LinkupSearchResult> {
+export async function searchLinkup(
+  query: string,
+  depth: "standard" | "deep",
+): Promise<LinkupSearchResult> {
   const response = await fetch("https://api.linkup.so/v1/search", {
     method: "POST",
     headers: {
@@ -158,10 +161,13 @@ export async function searchLinkup(query: string, depth: "standard" | "deep"): P
     );
   }
 
-  return await response.json() as LinkupSearchResult;
+  return (await response.json()) as LinkupSearchResult;
 }
 
-export async function fetchLinkup(url: string, renderJs: boolean = false): Promise<LinkupFetchResult> {
+export async function fetchLinkup(
+  url: string,
+  renderJs: boolean = false,
+): Promise<LinkupFetchResult> {
   const response = await fetch("https://api.linkup.so/v1/fetch", {
     method: "POST",
     headers: {
@@ -182,5 +188,5 @@ export async function fetchLinkup(url: string, renderJs: boolean = false): Promi
     );
   }
 
-  return await response.json() as LinkupFetchResult;
+  return (await response.json()) as LinkupFetchResult;
 }

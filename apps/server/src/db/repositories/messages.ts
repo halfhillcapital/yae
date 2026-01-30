@@ -8,9 +8,7 @@ export const MAX_CONVERSATION_HISTORY = 50;
 export class MessagesRepository {
   private conversations: Message[] = [];
 
-  constructor(private readonly db: ReturnType<typeof drizzle>) {
-    this.load();
-  }
+  constructor(private readonly db: ReturnType<typeof drizzle>) {}
 
   getAll(): Message[] {
     return this.conversations;
@@ -32,7 +30,7 @@ export class MessagesRepository {
     }
   }
 
-  private async load(): Promise<void> {
+  async load(): Promise<void> {
     const rows = await this.db
       .select()
       .from(messagesTable)

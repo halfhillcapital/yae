@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { AgentFS } from "agentfs-sdk";
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
 import { migrate } from "drizzle-orm/libsql/migrator";
 
+import { AGENT_MIGRATIONS_DIR, ADMIN_MIGRATIONS_DIR } from "../constants.ts";
 import * as schema from "./schemas/agent-schema.ts";
 import * as adminSchema from "./schemas/admin-schema.ts";
 import { MemoryRepository } from "./repositories/memory.ts";
@@ -18,6 +19,27 @@ import type { User, UserRole } from "./types.ts";
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
+  }
+}
+
+async function verifyTables(
+  db: ReturnType<typeof drizzle>,
+  tables: string[],
+): Promise<void> {
+  for (const name of tables) {
+    try {
+      const result = await db.get<{ name: string }>(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name=${name}`,
+      );
+      if (!result) {
+        throw new Error(`table "${name}" not found`);
+      }
+    } catch (err) {
+      throw new Error(
+        `Migration verification failed: table "${name}" not found`,
+        { cause: err },
+      );
+    }
   }
 }
 
@@ -40,24 +62,28 @@ export class AgentContext {
 
   static async create(agentId: string, dbPath: string): Promise<AgentContext> {
     const inMemory = dbPath === ":memory:";
-    const path = inMemory ? dbPath : `${dbPath}/${agentId}.db`;
+    const dbFile = inMemory ? dbPath : `${dbPath}/${agentId}.db`;
+    const fsFile = inMemory ? dbPath : `${dbPath}/${agentId}.fs.db`;
 
     if (!inMemory) {
-      const dir = path.substring(0, path.lastIndexOf("/"));
+      const dir = dbFile.substring(0, dbFile.lastIndexOf("/"));
       await ensureDir(dir);
     }
 
-    const fs = await AgentFS.open({ path });
+    const fs = await AgentFS.open({ path: fsFile });
     const client = createClient({
-      url: inMemory ? dbPath : `file:${path}`,
+      url: inMemory ? dbPath : `file:${dbFile}`,
     });
     const db = drizzle(client, { schema });
     await migrate(db, {
-      migrationsFolder: "./drizzle/agent",
+      migrationsFolder: AGENT_MIGRATIONS_DIR,
       migrationsTable: "__drizzle_migrations_agent",
     });
+    await verifyTables(db, ["memory", "messages", "workflow_runs"]);
 
     const ctx = new AgentContext(agentId, db, fs);
+    await ctx.memory.load();
+    await ctx.messages.load();
 
     // Clean up any workflows left "running" from a previous crash/restart
     const failed = await ctx.workflows.markStaleAsFailed();
@@ -81,9 +107,10 @@ export class AdminContext {
     const client = createClient({ url: `file:${dbPath}` });
     const db = drizzle(client, { schema: adminSchema });
     await migrate(db, {
-      migrationsFolder: "./drizzle/admin",
+      migrationsFolder: ADMIN_MIGRATIONS_DIR,
       migrationsTable: "__drizzle_migrations_admin",
     });
+    await verifyTables(db, ["users"]);
 
     return new AdminContext(db);
   }
