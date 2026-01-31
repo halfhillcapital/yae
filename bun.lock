@@ -38,6 +38,14 @@
         "drizzle-kit": "^0.31.8",
       },
     },
+    "packages/baml": {
+      "name": "@yae/baml",
+      "version": "0.1.0",
+      "dependencies": {
+        "@boundaryml/baml": "latest",
+        "@yae/graph": "workspace:*",
+      },
+    },
     "packages/graph": {
       "name": "@yae/graph",
       "version": "0.1.0",
@@ -47,6 +55,24 @@
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 
     "@borewit/text-codec": ["@borewit/text-codec@0.2.1", "", {}, "sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw=="],
+
+    "@boundaryml/baml": ["@boundaryml/baml@0.218.1", "", { "dependencies": { "@scarf/scarf": "^1.3.0" }, "optionalDependencies": { "@boundaryml/baml-darwin-arm64": "0.218.1", "@boundaryml/baml-darwin-x64": "0.218.1", "@boundaryml/baml-linux-arm64-gnu": "0.218.1", "@boundaryml/baml-linux-arm64-musl": "0.218.1", "@boundaryml/baml-linux-x64-gnu": "0.218.1", "@boundaryml/baml-linux-x64-musl": "0.218.1", "@boundaryml/baml-win32-arm64-msvc": "0.218.1", "@boundaryml/baml-win32-x64-msvc": "0.218.1" }, "bin": { "baml-cli": "cli.js", "baml": "cli.js" } }, "sha512-GQBfdBE+PAij+0lzUZKjhtsDB+ecust9PNwBgImHqOXqJsa5j0VPrSy0gKRVJOxUW/svG7uDQH5+f3bpBRi0oA=="],
+
+    "@boundaryml/baml-darwin-arm64": ["@boundaryml/baml-darwin-arm64@0.218.1", "", { "os": "darwin", "cpu": "arm64" }, "sha512-148Dkt7/WmBcWdkLW7kBQdwiHvlfSFSjx45ek6uvwbsYp0geN/fLnTARX3R+csRXHRD3JJ1asJkTkg7nnGQj9g=="],
+
+    "@boundaryml/baml-darwin-x64": ["@boundaryml/baml-darwin-x64@0.218.1", "", { "os": "darwin", "cpu": "x64" }, "sha512-5t/EDE42jZeHH1wHTV6+TTRhAk1f8hvmw9K9CLHTGrtMh62XD0QpvyKjaISJLWqzkK8LMsG3GIEjiXzNT9d49w=="],
+
+    "@boundaryml/baml-linux-arm64-gnu": ["@boundaryml/baml-linux-arm64-gnu@0.218.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-DhhhuSqt2FqHhl5zdBirkn9IDgOFijoY36Qwo2ea6ehAZDHW1gVH1OKiwTEtASeoVTN+orpEPN7eHKJ82g1+DA=="],
+
+    "@boundaryml/baml-linux-arm64-musl": ["@boundaryml/baml-linux-arm64-musl@0.218.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-aJxD3V75ShVtp0gVx6/lnmYctxWyy4CYn78IfNP8IkFVTyP/yE7M//O2/4af7ro7rjiKEzFJaDAoc4zrauv2jQ=="],
+
+    "@boundaryml/baml-linux-x64-gnu": ["@boundaryml/baml-linux-x64-gnu@0.218.1", "", { "os": "linux", "cpu": "x64" }, "sha512-vVeM90S9IS1PinE1CHzbkOd2FsLLgUgDSzJhJB/Ag6ftXJslZsUKPA0feR0b0EY22p1ZLpQncYumQnLahG+mCg=="],
+
+    "@boundaryml/baml-linux-x64-musl": ["@boundaryml/baml-linux-x64-musl@0.218.1", "", { "os": "linux", "cpu": "x64" }, "sha512-Sq+Yq2Yvkh7FIpwTRCnh5PpyilDDploiIz5YJtf0e23uXIqti1SY+BVbJ3KO10WrJgZhmTEqvpVRUzSfuE547A=="],
+
+    "@boundaryml/baml-win32-arm64-msvc": ["@boundaryml/baml-win32-arm64-msvc@0.218.1", "", { "os": "win32", "cpu": "arm64" }, "sha512-UtmeauttBjZaqWq3WF6TxRvlSY59lSNCd7hJDGrTqRKM+cQeCVAo4vq4IfODol8fagnpLnCgcEnXH6TZuV5I6w=="],
+
+    "@boundaryml/baml-win32-x64-msvc": ["@boundaryml/baml-win32-x64-msvc@0.218.1", "", { "os": "win32", "cpu": "x64" }, "sha512-WriD5EUds3RJL9Y3jbYNy6/1iYS4eP2iEtMyOPfu1e8/GitMMgyD1WKx2+xXP4wa9/PhOEjFQ5oT6WPOOq3ocg=="],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
@@ -162,6 +188,8 @@
 
     "@openrouter/sdk": ["@openrouter/sdk@0.3.15", "", { "dependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-tmiMQGu6L1fHD9NpIABN9LALEZitqM27CFebSVyJTQDcxCcR3m1F6v1O1MnOlLmedCFU+/BojniRGFAXo1F3Bw=="],
 
+    "@scarf/scarf": ["@scarf/scarf@1.4.0", "", {}, "sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ=="],
+
     "@sinclair/typebox": ["@sinclair/typebox@0.34.48", "", {}, "sha512-kKJTNuK3AQOrgjjotVxMrCn1sUJwM76wMszfq1kdU4uYVJjvEWuFQ6HgvLt4Xz3fSmZlTOxJ/Ie13KnIcWQXFA=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
@@ -217,6 +245,8 @@
     "@typescript-eslint/utils": ["@typescript-eslint/utils@8.54.0", "", { "dependencies": { "@eslint-community/eslint-utils": "^4.9.1", "@typescript-eslint/scope-manager": "8.54.0", "@typescript-eslint/types": "8.54.0", "@typescript-eslint/typescript-estree": "8.54.0" }, "peerDependencies": { "eslint": "^8.57.0 || ^9.0.0", "typescript": ">=4.8.4 <6.0.0" } }, "sha512-9Cnda8GS57AQakvRyG0PTejJNlA2xhvyNtEVIMlDWOOeEyBkYWhGPnfrIAnqxLMTSTo6q8g12XVjjev5l1NvMA=="],
 
     "@typescript-eslint/visitor-keys": ["@typescript-eslint/visitor-keys@8.54.0", "", { "dependencies": { "@typescript-eslint/types": "8.54.0", "eslint-visitor-keys": "^4.2.1" } }, "sha512-VFlhGSl4opC0bprJiItPQ1RfUhGDIBokcPwaFH4yiBCaNPeld/9VeXbiPO1cLyorQi1G1vL+ecBk1x8o1axORA=="],
+
+    "@yae/baml": ["@yae/baml@workspace:packages/baml"],
 
     "@yae/cli": ["@yae/cli@workspace:apps/cli"],
 
