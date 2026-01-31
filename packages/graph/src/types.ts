@@ -30,9 +30,11 @@ export type Action = string;
 export type NextAction = Action | undefined;
 
 /** Configuration for retry behavior on node execution failures. */
-export type RetryConfig = {
+export type RetryConfig<P = void, E = void> = {
   maxAttempts: number;
   delay?: number; // milliseconds
   backoff?: "linear" | "exponential";
   onRetry?: (attempt: number, error: Error) => Promise<void> | void;
+  /** Called when retries are exhausted. Return a value to recover, or throw to propagate. */
+  fallback?: (prepResult: P, error: Error) => Promise<E> | E;
 };

@@ -157,7 +157,7 @@ export class BaseNode<S, P = void, E = void> implements GraphNode<S> {
 // ============================================================================
 
 export type NodeConfig<S, P = void, E = void> = BaseNodeConfig<S, P, E> & {
-  retry?: RetryConfig;
+  retry?: RetryConfig<P, E>;
   timeout?: number; // milliseconds - applies to exec() phase
 };
 
@@ -173,7 +173,7 @@ class NodeTimeoutError extends Error {
 
 // Full-featured Node with retry, timeout, etc.
 export class Node<S, P = void, E = void> extends BaseNode<S, P, E> {
-  private retryConfig?: RetryConfig;
+  private retryConfig?: RetryConfig<P, E>;
   private timeout?: number;
 
   constructor(config?: NodeConfig<S, P, E>) {
@@ -183,6 +183,8 @@ export class Node<S, P = void, E = void> extends BaseNode<S, P, E> {
   }
 
   protected async fallback(prepResult: P, error: Error): Promise<E> {
+    if (this.retryConfig?.fallback)
+      return await this.retryConfig.fallback(prepResult, error);
     throw error;
   }
 
@@ -250,7 +252,7 @@ export type ParallelNodeConfig<S, P = void, E = void> = {
     execResult: E[],
   ) => Promise<NextAction> | NextAction;
   onError?: (error: Error, shared: S) => Promise<NextAction> | NextAction;
-  retry?: RetryConfig;
+  retry?: RetryConfig<P, E>;
   timeout?: number;
 };
 
@@ -266,7 +268,7 @@ export class ParallelNode<S, P = void, E = void> extends Node<
       exec: config.exec as NodeConfig<S, P[] | P, E[] | E>["exec"],
       post: config.post as NodeConfig<S, P[] | P, E[] | E>["post"],
       onError: config?.onError,
-      retry: config?.retry,
+      retry: config?.retry as RetryConfig<P[] | P, E[] | E>,
       timeout: config?.timeout,
     });
   }

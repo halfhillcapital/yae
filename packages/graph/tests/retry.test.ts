@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { Node, Flow, chain, branch } from "@yae/graph";
+import { Node, ParallelNode, Flow, chain, branch } from "@yae/graph";
 
 type SharedCalc = {
   result: number;
@@ -630,4 +630,196 @@ test("Flow onError sees retry attempts", async () => {
   expect(calls).toBe(3);
   expect(shared.result).toBe(100);
   expect(shared.logs).toEqual(["Node executed: Retrying node"]);
+});
+
+// ============================================================================
+// Fallback Config Tests
+// ============================================================================
+
+test("Config fallback returns recovery value after retries exhausted", async () => {
+  const shared: SharedCalc = { result: 0 };
+
+  const node = new Node<SharedCalc, number, number>({
+    name: "Fails with fallback",
+    prep: () => 42,
+    exec: () => {
+      throw new Error("Always fails");
+    },
+    post: (s, _p, execResult) => {
+      s.result = execResult;
+      return undefined;
+    },
+    retry: { maxAttempts: 2, delay: 10, fallback: () => -1 },
+  });
+
+  await Flow.from(node).run(shared);
+  expect(shared.result).toBe(-1);
+});
+
+test("Config fallback receives correct prepResult and error", async () => {
+  const shared: SharedCalc = { result: 0 };
+  let receivedPrep: number | undefined;
+  let receivedError: Error | undefined;
+
+  const node = new Node<SharedCalc, number, number>({
+    prep: () => 99,
+    exec: () => {
+      throw new Error("specific failure");
+    },
+    post: (s, _p, e) => {
+      s.result = e;
+      return undefined;
+    },
+    retry: {
+      maxAttempts: 1,
+      delay: 10,
+      fallback: (prepResult, error) => {
+        receivedPrep = prepResult;
+        receivedError = error;
+        return 0;
+      },
+    },
+  });
+
+  await Flow.from(node).run(shared);
+
+  expect(receivedPrep).toBe(99);
+  expect(receivedError?.message).toBe("specific failure");
+});
+
+test("Config fallback not called when exec succeeds", async () => {
+  const shared: SharedCalc = { result: 0 };
+  let fallbackCalled = false;
+
+  const node = new Node<SharedCalc, void, number>({
+    exec: () => 42,
+    post: (s, _p, e) => {
+      s.result = e;
+      return undefined;
+    },
+    retry: {
+      maxAttempts: 3,
+      delay: 10,
+      fallback: () => {
+        fallbackCalled = true;
+        return -1;
+      },
+    },
+  });
+
+  await Flow.from(node).run(shared);
+
+  expect(shared.result).toBe(42);
+  expect(fallbackCalled).toBe(false);
+});
+
+test("Config fallback not called when retry succeeds before exhaustion", async () => {
+  const shared: SharedCalc = { result: 0 };
+  let calls = 0;
+  let fallbackCalled = false;
+
+  const node = new Node<SharedCalc, void, number>({
+    exec: () => {
+      calls++;
+      if (calls < 2) throw new Error("Fail once");
+      return 100;
+    },
+    post: (s, _p, e) => {
+      s.result = e;
+      return undefined;
+    },
+    retry: {
+      maxAttempts: 3,
+      delay: 10,
+      fallback: () => {
+        fallbackCalled = true;
+        return -1;
+      },
+    },
+  });
+
+  await Flow.from(node).run(shared);
+
+  expect(shared.result).toBe(100);
+  expect(fallbackCalled).toBe(false);
+});
+
+test("Config fallback can throw to propagate error", async () => {
+  const shared: SharedCalc = { result: 0 };
+
+  const node = new Node<SharedCalc>({
+    exec: () => {
+      throw new Error("original");
+    },
+    retry: {
+      maxAttempts: 1,
+      delay: 10,
+      fallback: (_prep, _error) => {
+        throw new Error("fallback error");
+      },
+    },
+  });
+
+  await expect(Flow.from(node).run(shared)).rejects.toThrow("fallback error");
+});
+
+test("Config fallback can be async", async () => {
+  const shared: SharedCalc = { result: 0 };
+
+  const node = new Node<SharedCalc, void, number>({
+    exec: () => {
+      throw new Error("Fail");
+    },
+    post: (s, _p, e) => {
+      s.result = e;
+      return undefined;
+    },
+    retry: {
+      maxAttempts: 1,
+      delay: 10,
+      fallback: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return 777;
+      },
+    },
+  });
+
+  await Flow.from(node).run(shared);
+  expect(shared.result).toBe(777);
+});
+
+test("No fallback config defaults to rethrowing error", async () => {
+  const shared: SharedCalc = { result: 0 };
+
+  const node = new Node<SharedCalc>({
+    exec: () => {
+      throw new Error("should propagate");
+    },
+    retry: { maxAttempts: 2, delay: 10 },
+  });
+
+  await expect(Flow.from(node).run(shared)).rejects.toThrow("should propagate");
+});
+
+test("ParallelNode with config fallback recovers per item", async () => {
+  type S = { results: number[] };
+  const shared: S = { results: [] };
+
+  const node = new ParallelNode<S, number, number>({
+    name: "Parallel fallback",
+    prep: () => [1, 2, 3],
+    exec: (item) => {
+      if (item === 2) throw new Error("Item 2 fails");
+      return item * 10;
+    },
+    post: (s, _p, results) => {
+      s.results = results;
+      return undefined;
+    },
+    retry: { maxAttempts: 1, delay: 10, fallback: (item) => item * -1 },
+  });
+
+  await Flow.from(node).run(shared);
+
+  expect(shared.results).toEqual([10, -2, 30]);
 });
