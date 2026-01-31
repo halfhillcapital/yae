@@ -1,3 +1,56 @@
+/**
+ * Tagged template literal that strips common leading indentation from
+ * multi-line strings. Removes the first and last lines if they are empty
+ * (as they typically are with indented template literals).
+ *
+ * Use for structured text where line breaks should be preserved.
+ *
+ * @example
+ * const text = dedent`
+ *   Hello,
+ *   World!
+ * `;
+ * // → "Hello,\nWorld!"
+ */
+export function dedent(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): string {
+  const result = strings.reduce(
+    (acc, str, i) => acc + str + (values[i] ?? ""),
+    "",
+  );
+  const lines = result.split("\n");
+  if (lines[0]?.trim() === "") lines.shift();
+  if (lines.at(-1)?.trim() === "") lines.pop();
+  const indent = Math.min(
+    ...lines.filter((l) => l.trim()).map((l) => l.match(/^\s*/)![0].length),
+  );
+  return lines.map((l) => l.slice(indent)).join("\n");
+}
+
+/**
+ * Tagged template literal that strips leading indentation (like {@link dedent})
+ * and then collapses all line breaks into spaces, producing a single flowing
+ * paragraph.
+ *
+ * Use for long-form sentences that span multiple source lines but should
+ * render as one continuous block of text.
+ *
+ * @example
+ * const text = prose`
+ *   This is a long sentence that
+ *   spans multiple lines in source.
+ * `;
+ * // → "This is a long sentence that spans multiple lines in source."
+ */
+export function prose(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): string {
+  return dedent(strings, ...values).replace(/\n/g, " ");
+}
+
 export function getCurrentDatetime(date: Date = new Date()): string {
   const dayNames = [
     "Sunday",

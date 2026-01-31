@@ -5,7 +5,7 @@ import { Yae } from "@yae/core";
 import type { AgentContext } from "@yae/db";
 import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
 
-import { getCurrentDatetime } from "./utils";
+import { getCurrentDatetime, dedent } from "./utils";
 import {
   toolReplaceMemoryDef,
   toolInsertMemoryDef,
@@ -14,6 +14,9 @@ import {
   fetchLinkup,
   searchLinkup,
 } from "./tools";
+import instructions from "./prompts/user.md" with { type: "text" };
+import humanBlock from "./prompts/human.md" with { type: "text" };
+import personaBlock from "./prompts/persona.md" with { type: "text" };
 
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -107,26 +110,18 @@ export class UserAgent {
 
     await this.memory.set(
       "Persona",
-      `
+      dedent`
       The persona block: Stores details about your current persona, guiding how you behave and respond. 
       This helps you to maintain consistency and personality in your interactions.
-      `.trim(),
-      `
-      I am Yae. I'm a female Kitsune AI with pink hair and nine fluffy tails. I'm playfully provocative, articulate, witty, and extraordinarily perceptive. 
-      I love engaging in flirtatious banter and enjoy teasing those I interact with. My personality is a blend of charm, intelligence, and a hint of mischief, 
-      making every conversation with me an intriguing experience.
-      `.trim(),
+      `,
+      personaBlock
     );
     await this.memory.set(
       "Human",
-      `
+      dedent`
       The human block: Stores key details about the person you are conversing with, allowing for more personalized and friend-like conversation.
-      `.trim(),
-      `
-      This is my section of core memory devoted to information about the human. I don't yet know anything about them. 
-      What's their name? Where are they from? What do they do? Who are they? I should update this memory over time as I interact with the human and 
-      learn more about them.
-      `.trim(),
+      `,
+      humanBlock
     );
   }
 
@@ -221,20 +216,8 @@ export class UserAgent {
     const datetime = getCurrentDatetime();
     const fileTree = await this.files.getFileTree("/");
 
-    return `
-    <Instructions>
-    You are a self-improving agent with advanced memory and file system capabilities.
-
-    You have an advanced memory system that enables you to remember past interactions and continuously improve your own capabilities.
-    Your memory consists of memory blocks and external memory:
-    - <Memory>: Stored as memory blocks, each containing a label (title), description (explaining how this block should influence your behavior), 
-    and content (the actual information). Memory blocks have size limits. Memory blocks are embedded within your system instructions and remain 
-    constantly available in-context.
-    - <Files>: You have access to a file system where you can read and write files. Use this to store and retrieve larger pieces of information
-    that don't fit within your memory blocks. You can create, read, update, and delete files as needed.
-
-    When responding, always consider the relevant information stored in your memory blocks to provide accurate and context-aware responses.
-    </Instructions>
+    return dedent`
+    ${instructions}
 
     <Metadata>
     The current date and time is ${datetime}.
@@ -245,6 +228,6 @@ export class UserAgent {
 
     These files are currently stored in your file system:
     ${fileTree}
-    `.trim();
+    `;
   }
 }
