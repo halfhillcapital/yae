@@ -267,53 +267,66 @@ async function streamChat(
 
     buffer += decoder.decode(value, { stream: true });
 
-    // Process complete SSE events (data: ...\n\n)
-    const lines = buffer.split("\n");
-    buffer = "";
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-
-      // If this is the last line and doesn't end with newline, keep in buffer
-      if (i === lines.length - 1 && line !== "") {
-        buffer = line;
+    // Extract complete JSON objects from the concatenated stream.
+    // Try parsing at each closing brace — JSON.parse handles nested
+    // braces and strings correctly, so this is safe.
+    while (buffer.length > 0) {
+      const start = buffer.indexOf("{");
+      if (start === -1) {
+        buffer = "";
         break;
       }
 
-      if (line.startsWith("data: ")) {
-        const data = line.slice(6);
-        if (data === "[DONE]") continue;
-
+      let found = false;
+      for (let end = start + 1; end <= buffer.length; end++) {
+        if (buffer[end - 1] !== "}") continue;
+        let chunk: { type?: string; content?: string };
         try {
-          const chunk = JSON.parse(data);
-          if (jsonOut) {
-            console.log(JSON.stringify(chunk));
-            continue;
-          }
+          chunk = JSON.parse(buffer.slice(start, end));
+        } catch {
+          continue;
+        }
+
+        buffer = buffer.slice(end);
+        found = true;
+
+        if (jsonOut) {
+          console.log(JSON.stringify(chunk));
+        } else {
           switch (chunk.type) {
             case "THINKING":
               process.stdout.write(`${c.dim}  ${chunk.content}${c.reset}\n`);
               break;
             case "TOOL_CALL":
-              process.stdout.write(`${c.yellow}  ▸ ${chunk.content}${c.reset}\n`);
+              process.stdout.write(
+                `${c.yellow}  ▸ ${chunk.content}${c.reset}\n`,
+              );
               break;
             case "TOOL_RESULT":
-              process.stdout.write(`${c.dim}    ${chunk.content}${c.reset}\n`);
+              process.stdout.write(
+                `${c.dim}    ${chunk.content}${c.reset}\n`,
+              );
               break;
             case "TOOL_ERROR":
-              process.stdout.write(`${c.red}    ✗ ${chunk.content}${c.reset}\n`);
+              process.stdout.write(
+                `${c.red}    ✗ ${chunk.content}${c.reset}\n`,
+              );
               break;
             case "MESSAGE":
-              process.stdout.write(`\n${c.cyan}yae>${c.reset} ${chunk.content}\n`);
+              process.stdout.write(
+                `\n${c.cyan}yae>${c.reset} ${chunk.content}\n`,
+              );
               break;
             case "ERROR":
-              process.stdout.write(`\n${c.red}✗ ${chunk.content}${c.reset}\n`);
+              process.stdout.write(
+                `\n${c.red}✗ ${chunk.content}${c.reset}\n`,
+              );
               break;
           }
-        } catch {
-          // Ignore parse errors for incomplete chunks
         }
+        break;
       }
+      if (!found) break;
     }
   }
 }

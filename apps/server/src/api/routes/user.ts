@@ -9,22 +9,22 @@ export const userRoutes = new Elysia({ name: "user-routes" })
   .use(userAuth)
   .post(
     "/chat",
-    async ({ body, user, agent, set }) => {
+    async function* ({ body, user, agent, set }) {
       if (!user || !agent) {
         set.status = 401;
-        return "Blocked! User not recognized.";
+        return;
       }
-      
+
       const lastMessage = [...body.messages]
         .reverse()
         .find((m) => m.role === "user");
 
       if (!lastMessage) {
         set.status = 400;
-        return "No user message found in request body.";
+        return;
       }
 
-      return runAgentLoop(lastMessage, agent);
+      yield* runAgentLoop(lastMessage, agent);
     },
     {
       body: t.Object({

@@ -15,10 +15,8 @@
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",
     "@libsql/client": "latest",
-    "@tanstack/ai": "latest",
-    "@tanstack/ai-openrouter": "latest",
-    "@yae/graph": "workspace:*",
     "@yae/baml": "workspace:*",
+    "@yae/graph": "workspace:*",
     "agentfs-sdk": "latest",
     "drizzle-orm": "^0.45.1",
     "elysia": "^1.4.22",
