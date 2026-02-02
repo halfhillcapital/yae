@@ -1,7 +1,7 @@
 //TODO: Define all types used in database operations here, they use snake_case in the database
 
 export type UserRole = "user" | "admin";
-export type MessageRole = "user" | "assistant" | "tool";
+export type MessageRole = "user" | "assistant";
 
 export type User = {
   id: string;

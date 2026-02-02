@@ -1,8 +1,8 @@
 import { Elysia, t } from "elysia";
-import { toServerSentEventsResponse } from "@tanstack/ai";
 
 import { userAuth } from "../middleware";
 import { authRateLimit } from "../ratelimit";
+import { runAgentLoop } from "@yae/core/agents/user";
 
 export const userRoutes = new Elysia({ name: "user-routes" })
   .use(authRateLimit)
@@ -14,19 +14,26 @@ export const userRoutes = new Elysia({ name: "user-routes" })
         set.status = 401;
         return "Blocked! User not recognized.";
       }
+      
+      const lastMessage = [...body.messages]
+        .reverse()
+        .find((m) => m.role === "user");
 
-      try {
-        const result = await agent.runAgentTurn(body.message);
-        return toServerSentEventsResponse(result);
-      } catch (err) {
-        console.error("[Chat Error]", err);
-        set.status = 500;
-        return "Something went wrong while processing your request.";
+      if (!lastMessage) {
+        set.status = 400;
+        return "No user message found in request body.";
       }
+
+      return runAgentLoop(lastMessage, agent);
     },
     {
       body: t.Object({
-        message: t.String(),
+        messages: t.Array(
+          t.Object({
+            role: t.Union([t.Literal("user"), t.Literal("assistant")]),
+            content: t.String(),
+          }),
+        ),
       }),
     },
   );

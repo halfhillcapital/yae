@@ -5,7 +5,7 @@ BAML integration package for Y.A.E. Wraps the [BAML](https://docs.boundaryml.com
 ## Commands
 
 ```bash
-bun build       # Build baml
+bun build       # Generate BAML client
 bun test        # Run tests
 eslint .        # Lint
 ```

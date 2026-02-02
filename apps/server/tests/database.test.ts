@@ -169,11 +169,10 @@ describe("MessagesRepository", () => {
     const ctx1 = await AgentContext.create("agent", dir);
     await ctx1.messages.save({ role: "user", content: "u" });
     await ctx1.messages.save({ role: "assistant", content: "a" });
-    await ctx1.messages.save({ role: "tool", content: "t" });
 
     const ctx2 = await AgentContext.create("agent", dir);
     const roles = ctx2.messages.getAll().map((m) => m.role);
-    expect(roles).toEqual(["user", "assistant", "tool"]);
+    expect(roles).toEqual(["user", "assistant"]);
   });
 
   test("messages load in chronological order", async () => {

@@ -241,7 +241,9 @@ async function streamChat(
       "Content-Type": "application/json",
       Authorization: `Bearer ${userToken}`,
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      messages: [{ role: "user", content: message }],
+    }),
   });
 
   if (!res.ok) {
@@ -254,8 +256,6 @@ async function streamChat(
     error("No response body");
     return;
   }
-
-  process.stdout.write(`${c.cyan}yae>${c.reset} `);
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -288,18 +288,33 @@ async function streamChat(
           const chunk = JSON.parse(data);
           if (jsonOut) {
             console.log(JSON.stringify(chunk));
-          } else if (chunk.type === "TEXT_MESSAGE_CONTENT" && chunk.delta) {
-            process.stdout.write(chunk.delta);
+            continue;
+          }
+          switch (chunk.type) {
+            case "THINKING":
+              process.stdout.write(`${c.dim}  ${chunk.content}${c.reset}\n`);
+              break;
+            case "TOOL_CALL":
+              process.stdout.write(`${c.yellow}  ▸ ${chunk.content}${c.reset}\n`);
+              break;
+            case "TOOL_RESULT":
+              process.stdout.write(`${c.dim}    ${chunk.content}${c.reset}\n`);
+              break;
+            case "TOOL_ERROR":
+              process.stdout.write(`${c.red}    ✗ ${chunk.content}${c.reset}\n`);
+              break;
+            case "MESSAGE":
+              process.stdout.write(`\n${c.cyan}yae>${c.reset} ${chunk.content}\n`);
+              break;
+            case "ERROR":
+              process.stdout.write(`\n${c.red}✗ ${chunk.content}${c.reset}\n`);
+              break;
           }
         } catch {
           // Ignore parse errors for incomplete chunks
         }
       }
     }
-  }
-
-  if (!jsonOut) {
-    console.log(); // newline after response
   }
 }
 

@@ -11,7 +11,6 @@ bun run test                   # Run workflow tests
 bun run lint                   # ESLint
 bun run db:generate:agent      # Generate agent DB migrations
 bun run db:generate:admin      # Generate admin DB migrations
-bun run baml-generate          # Generate BAML client
 ```
 
 ## Path Aliases

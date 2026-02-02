@@ -1,8 +1,3 @@
-class Message {
-  role "user" | "assistant"
-  content string
-}
-
 function SummarizeMessages(messages: Message[]) -> string {
   client OpenRouter
   prompt #"

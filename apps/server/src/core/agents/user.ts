@@ -1,53 +1,91 @@
-import { chat, type ServerTool, type AGUIEvent } from "@tanstack/ai";
-import { openRouterText, type OpenRouterConfig } from "@tanstack/ai-openrouter";
-
 import { Yae } from "@yae/core";
-import type { AgentContext } from "@yae/db";
+import { userAgentTurn } from "@yae/baml";
+import type { UserAgentTool } from "@yae/baml";
+import type { AgentContext, Message } from "@yae/db";
 import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
 
 import { getCurrentDatetime, dedent } from "./utils";
 import {
-  toolReplaceMemoryDef,
-  toolInsertMemoryDef,
-  toolSearchLinkupDef,
-  toolFetchLinkupDef,
   fetchLinkup,
   searchLinkup,
 } from "./tools";
-import instructions from "./prompts/user.md" with { type: "text" };
-import humanBlock from "./prompts/human.md" with { type: "text" };
-import personaBlock from "./prompts/persona.md" with { type: "text" };
+import humanBlock from "./prompts/blocks/human.md" with { type: "text" };
+import personaBlock from "./prompts/blocks/persona.md" with { type: "text" };
 
-const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
-  apiKey: process.env.OPENROUTER_API_KEY,
-};
+export async function* runAgentLoop(
+  message: Message,
+  agent: UserAgent,
+  maxSteps: number = 10,
+) {
+  const context = await agent.buildContext();
+  const allResults: string[] = [];
+  let responded = false;
 
-async function* wrapStream(stream: AsyncIterable<AGUIEvent>, agent: UserAgent) {
-  let response = "";
-  try {
-    for await (const chunk of stream) {
-      if (chunk.type === "RUN_ERROR")
-        console.error("[chunk error]", JSON.stringify(chunk, null, 2));
-      if (chunk.type === "TEXT_MESSAGE_CONTENT") response += chunk.delta ?? "";
-      yield chunk;
+  for (let step = 0; step < maxSteps; step++) {
+    const agentStep = await userAgentTurn({
+      query: message.content,
+      history: agent.messages.getAll(),
+      memory: context,
+      tool_results: allResults.join("\n"),
+    });
+
+    yield { type: "THINKING", content: agentStep.thinking };
+
+    // Partition: actionable tools vs terminal send_message
+    const actionTools = agentStep.tools.filter(
+      (t) => t.tool_name !== "send_message",
+    );
+    const sendTool = agentStep.tools.find(
+      (t) => t.tool_name === "send_message",
+    );
+
+    // Execute actionable tools in parallel
+    for (const tool of actionTools) {
+      yield { type: "TOOL_CALL", content: tool.tool_name };
     }
-  } catch (err) {
-    console.error("[wrapStream] error during iteration:", err);
-    throw err;
+    const settled = await Promise.allSettled(
+      actionTools.map((tool) => agent.executeTool(tool)),
+    );
+    for (const [i, result] of settled.entries()) {
+      const toolName = actionTools[i]!.tool_name;
+      if (result.status === "fulfilled") {
+        const str = `${toolName}: ${result.value}`;
+        allResults.push(str);
+        yield { type: "TOOL_RESULT", content: str };
+      } else {
+        const str = `${toolName}: ERROR - ${result.reason}`;
+        allResults.push(str);
+        yield { type: "TOOL_ERROR", content: str };
+      }
+    }
+
+    // Exit on send_message
+    if (sendTool) {
+      const content = sendTool.message;
+      await agent.messages.save(message);
+      await agent.messages.save({ role: "assistant", content });
+      yield { type: "MESSAGE", content };
+      responded = true;
+      break;
+    }
   }
 
-  await agent.messages.save({ role: "assistant", content: response });
+  // Fallback when max steps exhausted without a response
+  if (!responded) {
+    const content =
+      "I wasn't able to complete my response within the allowed steps. Please try again or rephrase your request.";
+    await agent.messages.save(message);
+    await agent.messages.save({ role: "assistant", content });
+    yield { type: "ERROR", content };
+  }
 }
 
 export class UserAgent {
-  private tools: Array<ServerTool> = [];
-
   constructor(
     public readonly id: string,
     private readonly ctx: AgentContext,
   ) {
     this.initState();
-    this.initTools();
   }
 
   get memory() {
@@ -88,23 +126,6 @@ export class UserAgent {
     }
   }
 
-  async runAgentTurn(message: string) {
-    await this.messages.save({ role: "user", content: message });
-    const userMessages = this.messages.getAll();
-    const context = await this.buildContext();
-
-    const stream: AsyncIterable<AGUIEvent> = chat({
-      adapter: openRouterText("openai/gpt-4o-mini", DEFAULT_OPENROUTER_CONFIG),
-      messages: userMessages,
-      systemPrompts: [context],
-      tools: this.tools,
-      stream: true,
-    });
-
-    return wrapStream(stream, this);
-  }
-
-  //TODO: Fix the formatting to remove unneeded spaces and newlines
   private async initState(): Promise<void> {
     if (this.memory.has("Persona") || this.memory.has("Human")) return;
 
@@ -125,100 +146,45 @@ export class UserAgent {
     );
   }
 
-  private async initTools(): Promise<void> {
-    const toolReplaceMemory = toolReplaceMemoryDef.server(
-      async ({ label, oldContent, newContent }) => {
-        let toolId = 0;
-        try {
-          toolId = await this.files.toolPending("memory_replace", {
-            label,
-            oldContent,
-            newContent,
-          });
-          const result = await this.memory.replaceMemory(
-            label,
-            oldContent,
-            newContent,
-          );
-          await this.files.toolSuccess(toolId, result);
-          return result;
-        } catch (error) {
-          await this.files.toolFailure(toolId, `${error}`);
-          throw error;
-        }
-      },
-    );
-
-    const toolInsertMemory = toolInsertMemoryDef.server(
-      async ({ label, content, line }) => {
-        let toolId = 0;
-        try {
-          toolId = await this.files.toolPending("memory_insert", {
-            label,
-            content,
-            line,
-          });
-          const result = await this.memory.insertMemory(label, content, line);
-          await this.files.toolSuccess(toolId, result);
-          return result;
-        } catch (error) {
-          await this.files.toolFailure(toolId, `${error}`);
-          throw error;
-        }
-      },
-    );
-
-    const toolSearchLinkup = toolSearchLinkupDef.server(
-      async ({ query, depth }) => {
-        let toolId = 0;
-        try {
-          toolId = await this.files.toolPending("search_linkup", {
-            query,
-            depth,
-          });
-          const searchResults = await searchLinkup(query, depth);
-          await this.files.toolSuccess(toolId, searchResults);
-          return searchResults;
-        } catch (error) {
-          await this.files.toolFailure(toolId, `${error}`);
-          throw error;
-        }
-      },
-    );
-
-    const toolFetchLinkup = toolFetchLinkupDef.server(
-      async ({ url, renderJs }) => {
-        let toolId = 0;
-        try {
-          toolId = await this.files.toolPending("fetch_linkup", {
-            url,
-            renderJs,
-          });
-          const fetchResult = await fetchLinkup(url, renderJs);
-          await this.files.toolSuccess(toolId, fetchResult);
-          return fetchResult;
-        } catch (error) {
-          await this.files.toolFailure(toolId, `${error}`);
-          throw error;
-        }
-      },
-    );
-
-    this.tools.push(
-      toolReplaceMemory,
-      toolInsertMemory,
-      toolSearchLinkup,
-      toolFetchLinkup,
-    );
+  async executeTool(tool: UserAgentTool): Promise<string> {
+    const toolId = await this.files.toolPending(tool.tool_name, tool);
+    try {
+      const result = await this.runTool(tool);
+      await this.files.toolSuccess(toolId, result);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await this.files.toolFailure(toolId, msg);
+      throw e;
+    }
   }
 
-  private async buildContext(): Promise<string> {
+  private async runTool(tool: UserAgentTool): Promise<string> {
+    switch (tool.tool_name) {
+      case "memory_replace":
+        return this.memory.replaceMemory(tool.label, tool.old_content, tool.new_content);
+      case "memory_insert":
+        return this.memory.insertMemory(tool.label, tool.content, tool.line);
+      case "web_search": {
+        const result = await searchLinkup(tool.query, tool.depth);
+        return result.answer;
+      }
+      case "web_fetch": {
+        const result = await fetchLinkup(tool.url, tool.render);
+        return result.markdown;
+      }
+      case "send_message":
+        return tool.message;
+      case "continue_thinking":
+        return tool.reasoning;
+    }
+  }
+
+  async buildContext(): Promise<string> {
     const datetime = getCurrentDatetime();
     const fileTree = await this.files.getFileTree("/");
 
     return dedent`
-    ${instructions}
-
     <Metadata>
     The current date and time is ${datetime}.
     </Metadata>
