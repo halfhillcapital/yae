@@ -1,21 +1,8 @@
 import { z } from "zod";
-import { toolDefinition } from "@tanstack/ai";
 
 // ============================================================================
 // Tavily Web Search Tool
 // ============================================================================
-
-const tavilySearchQuerySchema = z.object({
-  query: z.string().describe("The search query string."),
-  depth: z
-    .enum(["basic", "advanced"])
-    .describe(
-      "The depth of the search and generated answer. Use 'basic' for generic results, 'advanced' for more thorough search.",
-    ),
-  topic: z
-    .enum(["general", "news", "finance"])
-    .describe("The topic category for the search. If unsure, use 'general'."),
-});
 
 const tavilySearchResultSchema = z.object({
   answer: z
@@ -35,14 +22,6 @@ const tavilySearchResultSchema = z.object({
       }),
     )
     .describe("List of search results."),
-});
-
-export const toolSearchTavilyDef = toolDefinition({
-  name: "search_tavily",
-  description: `Search the web for current information on any topic. Use for news, facts, or data beyond your knowledge cutoff. 
-    Returns a generated answer and a list of search results.`,
-  inputSchema: tavilySearchQuerySchema,
-  outputSchema: tavilySearchResultSchema,
 });
 
 type TavilySearchResult = z.infer<typeof tavilySearchResultSchema>;
@@ -72,21 +51,15 @@ export async function searchTavily(
     );
   }
 
-  return (await response.json()) as TavilySearchResult;
+  const data = await response.json();
+  const result = tavilySearchResultSchema.parse(data);
+
+  return result;
 }
 
 // ============================================================================
 // LinkUp Web Search and Fetch Tools
 // ============================================================================
-
-const linkupSearchQuerySchema = z.object({
-  query: z.string().describe("The search query string."),
-  depth: z
-    .enum(["standard", "deep"])
-    .describe(
-      "The depth of the search. Use 'standard' for regular results, 'deep' for more comprehensive search.",
-    ),
-});
 
 const linkupSearchResultSchema = z.object({
   answer: z
@@ -103,14 +76,6 @@ const linkupSearchResultSchema = z.object({
     .describe("List of search results."),
 });
 
-const linkupFetchQuerySchema = z.object({
-  url: z.string().describe("The URL of the webpage to fetch."),
-  renderJs: z
-    .boolean()
-    .optional()
-    .describe("Whether to render JavaScript on the page (default: false)."),
-});
-
 const linkupFetchResultSchema = z.object({
   markdown: z
     .string()
@@ -119,22 +84,6 @@ const linkupFetchResultSchema = z.object({
 
 type LinkupFetchResult = z.infer<typeof linkupFetchResultSchema>;
 type LinkupSearchResult = z.infer<typeof linkupSearchResultSchema>;
-
-export const toolSearchLinkupDef = toolDefinition({
-  name: "search_linkup",
-  description:
-    "Search the web for current information on any topic. Use for news, facts, or data beyond your knowledge cutoff. Returns a generated answer and a list of search results.",
-  inputSchema: linkupSearchQuerySchema,
-  outputSchema: linkupSearchResultSchema,
-});
-
-export const toolFetchLinkupDef = toolDefinition({
-  name: "fetch_linkup",
-  description:
-    "Fetch the content of a webpage. Optionally render JavaScript on the page. Returns the content in markdown format.",
-  inputSchema: linkupFetchQuerySchema,
-  outputSchema: linkupFetchResultSchema,
-});
 
 export async function searchLinkup(
   query: string,
@@ -161,7 +110,10 @@ export async function searchLinkup(
     );
   }
 
-  return (await response.json()) as LinkupSearchResult;
+  const data = await response.json();
+  const result = linkupSearchResultSchema.parse(data);
+
+  return result;
 }
 
 export async function fetchLinkup(
@@ -188,5 +140,8 @@ export async function fetchLinkup(
     );
   }
 
-  return (await response.json()) as LinkupFetchResult;
+  const data = await response.json();
+  const result = linkupFetchResultSchema.parse(data);
+
+  return result;
 }

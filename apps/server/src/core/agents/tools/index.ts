@@ -1,2 +1,1 @@
-export * from "./memory.ts";
-export * from "./web.ts";
+export * from "./websearch.ts";
