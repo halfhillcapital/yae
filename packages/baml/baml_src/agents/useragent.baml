@@ -16,7 +16,7 @@ class UserAgentResponse {
 }
 
 type UserAgentAction = UserAgentToolStep | UserAgentResponse
-type UserAgentTool = MemoryReplaceTool | MemoryInsertTool | WebSearchTool | WebFetchTool
+type UserAgentTool = MemoryReplaceTool | MemoryInsertTool | MemoryCreateTool | MemoryDeleteTool | FileReadTool | FileWriteTool | FileListTool | FileDeleteTool | WebSearchTool | WebFetchTool
 
 function UserAgentTurn(context: UserAgentContext) -> UserAgentAction {
   client OpenRouter

@@ -11,7 +11,14 @@ export type {
   UserAgentContext,
   MemoryReplaceTool,
   MemoryInsertTool,
+  MemoryCreateTool,
+  MemoryDeleteTool,
+  FileReadTool,
+  FileWriteTool,
+  FileListTool,
+  FileDeleteTool,
   WebSearchTool,
+  WebFetchTool,
 } from "../baml_client/types";
 
 export type { BamlStream } from "@boundaryml/baml";

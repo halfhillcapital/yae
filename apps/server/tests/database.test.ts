@@ -118,11 +118,11 @@ describe("MemoryRepository", () => {
 
     const ctx1 = await AgentContext.create("agent", dir);
     await ctx1.memory.set("doc", "desc", "line0\nline1\nline2");
-    await ctx1.memory.insertMemory("doc", "inserted", 1);
+    await ctx1.memory.insertMemory("doc", "inserted", "beginning");
 
     const ctx2 = await AgentContext.create("agent", dir);
     expect(ctx2.memory.get("doc")!.content).toBe(
-      "line0\ninserted\nline1\nline2",
+      "inserted\nline0\nline1\nline2",
     );
   });
 

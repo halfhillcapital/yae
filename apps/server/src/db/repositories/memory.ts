@@ -85,24 +85,16 @@ export class MemoryRepository {
   async insertMemory(
     label: string,
     content: string,
-    line: number,
+    position: "beginning" | "end",
   ): Promise<string> {
     const block = this.blocks.get(label);
     if (!block)
       throw new Error(`Memory block with label "${label}" does not exist.`);
 
-    const lines = block.content.split("\n");
-    if (line !== -1 && (line < 0 || line > lines.length))
-      throw new Error(
-        `Invalid line number ${line} for memory block with label "${label}". It should be 0-${lines.length} or -1 for end.`,
-      );
-
-    if (line === -1) {
-      lines.push(content);
-    } else {
-      lines.splice(line, 0, content);
-    }
-    const updatedContent = lines.join("\n");
+    const updatedContent =
+      position === "beginning"
+        ? content + "\n" + block.content
+        : block.content + "\n" + content;
 
     await this.db
       .update(memoryTable)
@@ -112,9 +104,7 @@ export class MemoryRepository {
     block.content = updatedContent;
     block.updated_at = Date.now();
     this.blocks.set(label, block);
-    return `The memory block with label ${label} has been updated with new content at line ${line}.
-    Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
-    Edit the memory block again if necessary.`;
+    return `Content inserted at the ${position} of memory block "${label}".`;
   }
 
   toXML(): string {

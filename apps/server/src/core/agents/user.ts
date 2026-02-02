@@ -156,7 +156,37 @@ export class UserAgent {
       case "memory_replace":
         return this.memory.replaceMemory(tool.label, tool.old_content, tool.new_content);
       case "memory_insert":
-        return this.memory.insertMemory(tool.label, tool.content, tool.line);
+        return this.memory.insertMemory(tool.label, tool.content, tool.position);
+      case "memory_create": {
+        const blockCount = this.memory.getAll().length;
+        if (blockCount >= 20)
+          throw new Error(
+            `Memory block limit reached (${blockCount}/20). Delete an existing block before creating a new one.`,
+          );
+        await this.memory.set(tool.label, tool.description, tool.content);
+        return `Memory block "${tool.label}" created (${blockCount + 1}/20).`;
+      }
+      case "memory_delete": {
+        const PROTECTED_LABELS = ["Persona", "Human"];
+        if (PROTECTED_LABELS.includes(tool.label))
+          throw new Error(
+            `Memory block "${tool.label}" is protected and cannot be deleted.`,
+          );
+        const deleted = await this.memory.delete(tool.label);
+        if (!deleted)
+          throw new Error(`Memory block "${tool.label}" does not exist.`);
+        return `Memory block "${tool.label}" deleted.`;
+      }
+      case "file_read":
+        return await this.files.readFile(tool.path, "utf-8");
+      case "file_write":
+        await this.files.writeFile(tool.path, tool.content, "utf-8");
+        return `File "${tool.path}" written.`;
+      case "file_list":
+        return await this.files.getFileTree(tool.path);
+      case "file_delete":
+        await this.files.unlink(tool.path);
+        return `File "${tool.path}" deleted.`;
       case "web_search": {
         const result = await searchLinkup(tool.query, tool.depth);
         return result.answer;
