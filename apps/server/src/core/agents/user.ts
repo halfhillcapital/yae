@@ -31,42 +31,34 @@ export async function* runAgentLoop(
 
     yield { type: "THINKING", content: agentStep.thinking };
 
-    // Partition: actionable tools vs terminal send_message
-    const actionTools = agentStep.tools.filter(
-      (t) => t.tool_name !== "send_message",
-    );
-    const sendTool = agentStep.tools.find(
-      (t) => t.tool_name === "send_message",
-    );
-
-    // Execute actionable tools in parallel
-    for (const tool of actionTools) {
-      yield { type: "TOOL_CALL", content: tool.tool_name };
-    }
-    const settled = await Promise.allSettled(
-      actionTools.map((tool) => agent.executeTool(tool)),
-    );
-    for (const [i, result] of settled.entries()) {
-      const toolName = actionTools[i]!.tool_name;
-      if (result.status === "fulfilled") {
-        const str = `${toolName}: ${result.value}`;
-        allResults.push(str);
-        yield { type: "TOOL_RESULT", content: str };
-      } else {
-        const str = `${toolName}: ERROR - ${result.reason}`;
-        allResults.push(str);
-        yield { type: "TOOL_ERROR", content: str };
-      }
-    }
-
-    // Exit on send_message
-    if (sendTool) {
-      const content = sendTool.message;
+    // UserAgentResponse → final message, exit loop
+    if ("message" in agentStep) {
+      const content = agentStep.message;
       await agent.messages.save(message);
       await agent.messages.save({ role: "assistant", content });
       yield { type: "MESSAGE", content };
       responded = true;
       break;
+    }
+
+    // UserAgentToolStep → execute tools, loop
+    for (const tool of agentStep.tools) {
+      yield { type: "TOOL_CALL", content: tool.tool_name };
+    }
+    const settled = await Promise.allSettled(
+      agentStep.tools.map((tool) => agent.executeTool(tool)),
+    );
+    for (const [i, result] of settled.entries()) {
+      const toolName = agentStep.tools[i]!.tool_name;
+      if (result.status === "fulfilled") {
+        const str = `<tool_result step="${step + 1}" tool="${toolName}">${result.value}</tool_result>`;
+        allResults.push(str);
+        yield { type: "TOOL_RESULT", content: str };
+      } else {
+        const str = `<tool_error step="${step + 1}" tool="${toolName}">${result.reason}</tool_error>`;
+        allResults.push(str);
+        yield { type: "TOOL_ERROR", content: str };
+      }
     }
   }
 
@@ -173,10 +165,6 @@ export class UserAgent {
         const result = await fetchLinkup(tool.url, tool.render);
         return result.markdown;
       }
-      case "send_message":
-        return tool.message;
-      case "continue_thinking":
-        return tool.reasoning;
     }
   }
 

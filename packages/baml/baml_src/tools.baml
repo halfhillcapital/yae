@@ -1,13 +1,3 @@
-class SendMessageTool {
-  tool_name "send_message" @description("Send a message to the user and pause execution until they respond.")
-  message string @description("The message to send to the user.")
-}
-
-class ContinueThinkingTool {
-  tool_name "continue_thinking" @description("Continue processing without sending a message. Use this to chain multiple tool calls together.")
-  reasoning string @description("Your reasoning for why you need to continue.")
-}
-
 class MemoryReplaceTool {
   tool_name "memory_replace" @description(#"Use this tool to replace a specific string in a memory block with a new string.
 This is used for making precise edits."#)

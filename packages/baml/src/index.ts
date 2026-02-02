@@ -1,7 +1,7 @@
 // @yae/baml — BAML integration for Y.A.E.
 
 import { b } from "../baml_client";
-import type { UserAgentStep, UserAgentContext } from "../baml_client/types";
+import type { UserAgentAction, UserAgentContext } from "../baml_client/types";
 import type { partial_types } from "../baml_client/partial_types";
 import type { BamlStream } from "@boundaryml/baml";
 
@@ -9,8 +9,6 @@ export type {
   Message,
   UserAgentTool,
   UserAgentContext,
-  SendMessageTool,
-  ContinueThinkingTool,
   MemoryReplaceTool,
   MemoryInsertTool,
   WebSearchTool,
@@ -29,7 +27,7 @@ export interface UserAgentTurnOptions {
 export async function userAgentTurn(
   context: UserAgentContext,
   options?: UserAgentTurnOptions,
-): Promise<UserAgentStep> {
+): Promise<UserAgentAction> {
   return b.UserAgentTurn(context, options);
 }
 
@@ -41,6 +39,6 @@ export async function userAgentTurn(
 export function userAgentTurnStream(
   context: UserAgentContext,
   options?: UserAgentTurnOptions,
-): BamlStream<partial_types.UserAgentStep, UserAgentStep> {
+): BamlStream<partial_types.UserAgentAction, UserAgentAction> {
   return b.stream.UserAgentTurn(context, options);
 }

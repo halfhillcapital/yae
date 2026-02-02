@@ -13,7 +13,7 @@ client<llm> VercelGateway {
   provider "openai-generic"
   options {
     base_url "https://ai-gateway.vercel.sh/v1"
-    api_key env.VERCEL_AI_GATEWAY_TOKEN
+    api_key env.VERCEL_GATEWAY_API_KEY
     // Example models routed via the gateway
     // model "anthropic/claude-3-5-sonnet-latest"
     // model "openai/gpt-5-mini"
