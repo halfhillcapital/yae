@@ -1,7 +1,14 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { DATA_DIR, AGENTS_DB_DIR } from "../constants.ts";
-import { AgentContext, AdminContext, type User, type UserRole } from "@yae/db";
+import {
+  AgentContext,
+  AdminContext,
+  type User,
+  type UserRole,
+  type Webhook,
+  type WebhookEvent,
+} from "@yae/db";
 import { UserAgent, WorkerAgent } from "./agents";
 
 export type HealthStatus = {
@@ -200,5 +207,39 @@ export class Yae {
 
   get files() {
     return this.ctx.files;
+  }
+
+  get webhooks() {
+    return this.admin.webhooks;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Webhook Dispatch
+  // ─────────────────────────────────────────────────────────────
+
+  async dispatchWebhookEvent(
+    webhook: Webhook,
+    event: WebhookEvent,
+  ): Promise<void> {
+    if (!webhook.target_user_id || !webhook.target_workflow) {
+      // No dispatch target — event is stored only
+      return;
+    }
+
+    try {
+      // TODO: trigger workflow on agent when workflow registry is implemented
+      // await this.createUserAgent(webhook.target_user_id);
+
+      await this.admin.webhooks.updateEventStatus(event.id, "dispatched");
+      console.log(
+        `[Yae] Dispatched webhook event ${event.id} to user ${webhook.target_user_id}`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.admin.webhooks.updateEventStatus(event.id, "failed", message);
+      console.error(
+        `[Yae] Failed to dispatch webhook event ${event.id}: ${message}`,
+      );
+    }
   }
 }

@@ -14,6 +14,7 @@ import { MemoryRepository } from "./repositories/memory.ts";
 import { MessagesRepository } from "./repositories/messages.ts";
 import { FileRepository } from "./repositories/files.ts";
 import { WorkflowRepository } from "./repositories/workflow.ts";
+import { WebhookRepository } from "./repositories/webhook.ts";
 import type { User, UserRole } from "./types.ts";
 
 async function ensureDir(dir: string) {
@@ -98,7 +99,11 @@ export class AgentContext {
 }
 
 export class AdminContext {
-  private constructor(private readonly db: ReturnType<typeof drizzle>) {}
+  readonly webhooks: WebhookRepository;
+
+  private constructor(private readonly db: ReturnType<typeof drizzle>) {
+    this.webhooks = new WebhookRepository(db);
+  }
 
   static async create(dbPath: string): Promise<AdminContext> {
     const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
@@ -110,7 +115,7 @@ export class AdminContext {
       migrationsFolder: ADMIN_MIGRATIONS_DIR,
       migrationsTable: "__drizzle_migrations_admin",
     });
-    await verifyTables(db, ["users"]);
+    await verifyTables(db, ["users", "webhooks", "webhook_events"]);
 
     return new AdminContext(db);
   }

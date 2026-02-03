@@ -38,3 +38,28 @@ export interface WorkflowRun<T = Record<string, unknown>> {
   updated_at: number;
   completed_at?: number;
 }
+
+export type WebhookEventStatus = "received" | "dispatched" | "failed";
+
+export type Webhook = {
+  id: string;
+  name: string;
+  slug: string;
+  secret: string;
+  target_user_id?: string | null;
+  target_workflow?: string | null;
+  active: number;
+  created_at: number;
+};
+
+export type WebhookEvent = {
+  id: string;
+  webhook_id: string;
+  external_id?: string | null;
+  headers: string;
+  payload: string;
+  status: WebhookEventStatus;
+  error?: string | null;
+  received_at: number;
+  processed_at?: number | null;
+};

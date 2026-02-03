@@ -21,3 +21,10 @@ export const authRateLimit = rateLimit({
   duration: 60_000,
   errorResponse: rateLimitError,
 });
+
+/** 60 requests per 60 seconds — for webhook endpoints */
+export const webhookRateLimit = rateLimit({
+  max: 60,
+  duration: 60_000,
+  errorResponse: rateLimitError,
+});
