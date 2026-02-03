@@ -8,7 +8,6 @@
   },
   "scripts": {
     "build": "baml-cli generate",
-    "test": "bun test",
     "lint": "eslint ."
   },
   "dependencies": {
