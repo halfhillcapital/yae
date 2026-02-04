@@ -148,4 +148,10 @@ export class FileRepository {
 
     return fileList.join("\n");
   }
+
+  async toXML(path: string): Promise<string> {
+    const fileTree = await this.getFileTree(path);
+    const xml = `<files>\n${fileTree}\n</files>`;
+    return xml;
+  }
 }

@@ -6,7 +6,7 @@ import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
 import { summarizeWorkflow } from "@yae/core/workflows/summarize.ts";
 import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";
 
-import { getCurrentDatetime, dedent } from "./utils";
+import { getCurrentDatetime, dedent, prose } from "./utils";
 import { fetchLinkup, searchLinkup } from "./tools/websearch";
 import humanBlock from "./prompts/blocks/human.md" with { type: "text" };
 import personaBlock from "./prompts/blocks/persona.md" with { type: "text" };
@@ -140,18 +140,24 @@ export class UserAgent {
 
     await this.memory.set(
       "persona",
-      dedent`
+      prose`
       The persona block: Stores details about your current persona, guiding how you behave and respond. 
-      This helps you to maintain consistency and personality in your interactions.
-      `,
+      This helps you to maintain consistency and personality in your interactions.`,
       personaBlock,
     );
     await this.memory.set(
       "human",
-      dedent`
-      The human block: Stores key details about the person you are conversing with, allowing for more personalized and friend-like conversation.
-      `,
+      prose`
+      The human block: Stores key details about the person you are conversing with, 
+      allowing for more personalized and friend-like conversation.`,
       humanBlock,
+    );
+    await this.memory.set(
+      "conversation_summary",
+      prose`
+      A rolling summary of earlier conversation history. 
+      Use this to maintain context about past interactions when the full history is no longer available.`,
+      "No conversation history yet.",
     );
   }
 
@@ -225,7 +231,8 @@ export class UserAgent {
 
   async buildContext(): Promise<string> {
     const datetime = getCurrentDatetime();
-    const fileTree = await this.files.getFileTree("/");
+    const memoryXML = this.memory.toXML();
+    const fileXML = await this.files.toXML("/");
 
     return dedent`
     <metadata>
@@ -233,12 +240,9 @@ export class UserAgent {
     </metadata>
 
     These memory blocks are currently in your active attention:
-    ${this.memory.toXML()}
+    ${memoryXML}
 
     These files are currently stored in your file system:
-    <files>
-    ${fileTree}
-    </files>
-    `;
+    ${fileXML}`;
   }
 }

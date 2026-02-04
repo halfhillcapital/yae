@@ -44,6 +44,21 @@ export class MemoryRepository {
     });
   }
 
+  async setContent(label: string, content: string): Promise<void> {
+    const block = this.blocks.get(label);
+    if (!block)
+      throw new Error(`Memory block with label "${label}" does not exist.`);
+
+    await this.db
+      .update(memoryTable)
+      .set({ content })
+      .where(eq(memoryTable.label, label));
+
+    block.content = content;
+    block.updated_at = Date.now();
+    this.blocks.set(label, block);
+  }
+
   async delete(label: string): Promise<boolean> {
     if (!this.blocks.has(label)) {
       return false;

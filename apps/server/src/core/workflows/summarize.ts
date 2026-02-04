@@ -5,10 +5,6 @@ import { defineWorkflow } from "./index.ts";
 
 const CHUNK_SIZE = 20;
 
-const SUMMARY_BLOCK_LABEL = "conversation_summary";
-const SUMMARY_BLOCK_DESCRIPTION =
-  "A rolling summary of earlier conversation history. Use this to maintain context about past interactions when the full history is no longer available.";
-
 interface SummarizeState {
   existingSummary: string | null;
   messagesToSummarize: Message[];
@@ -76,7 +72,7 @@ export const summarizeWorkflow = defineWorkflow<SummarizeState>({
       name: "collect",
       prep: async (state) => {
         const messages = await state.ctx.messages.getMessagesForSummarization();
-        const existing = state.ctx.memory.get(SUMMARY_BLOCK_LABEL);
+        const existing = state.ctx.memory.get("conversation_summary");
         return {
           messages,
           existingSummary: existing?.content ?? null,
@@ -128,11 +124,7 @@ export const summarizeWorkflow = defineWorkflow<SummarizeState>({
       name: "store",
       prep: (state) => state.data.finalSummary,
       post: async (state, prep) => {
-        await state.ctx.memory.set(
-          SUMMARY_BLOCK_LABEL,
-          SUMMARY_BLOCK_DESCRIPTION,
-          prep,
-        );
+        await state.ctx.memory.setContent("conversation_summary", prep);
         const half = Math.floor(MAX_CONVERSATION_HISTORY / 2);
         state.data.prunedCount = state.ctx.messages.prune(half);
         return undefined;
