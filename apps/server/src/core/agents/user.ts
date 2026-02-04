@@ -2,7 +2,7 @@ import { Yae } from "@yae/core";
 import { userAgentTurn } from "@yae/baml";
 import type { UserAgentTool } from "@yae/baml";
 import type { AgentContext, Message } from "@yae/db";
-import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
+import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows/types.ts";
 import { summarizeWorkflow } from "@yae/core/workflows/summarize.ts";
 import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";
 

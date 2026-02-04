@@ -8,6 +8,7 @@
     "dev": "bun --watch src/index.ts",
     "test": "bun test",
     "lint": "eslint .",
+    "prepare": "bun run db:generate:agent && bun run db:generate:admin",
     "db:generate:agent": "drizzle-kit generate --config drizzle-agent.config.ts",
     "db:generate:admin": "drizzle-kit generate --config drizzle-admin.config.ts",
     "db:studio": "drizzle-kit studio"

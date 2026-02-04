@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "baml-cli generate",
+    "prepare": "baml-cli generate",
     "lint": "eslint ."
   },
   "dependencies": {

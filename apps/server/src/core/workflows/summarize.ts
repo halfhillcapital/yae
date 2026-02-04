@@ -1,7 +1,7 @@
 import { summarizeChunk, mergeSummaries } from "@yae/baml";
 import type { Message } from "@yae/db";
 import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";
-import { defineWorkflow } from "./index.ts";
+import { defineWorkflow } from "./utils.ts";
 
 const CHUNK_SIZE = 20;
 

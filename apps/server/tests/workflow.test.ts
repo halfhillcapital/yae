@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { AgentContext } from "@yae/db/context.ts";
-import { defineWorkflow, runWorkflow } from "@yae/core/workflows/index.ts";
+import { defineWorkflow, runWorkflow } from "@yae/core/workflows/utils.ts";
 
 function getTestDbPath(): string {
   return ":memory:"; // Use in-memory DB for tests

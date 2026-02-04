@@ -1,9 +1,6 @@
 import type { AgentContext } from "@yae/db";
-import {
-  runWorkflow,
-  type WorkflowDefinition,
-  type WorkflowResult,
-} from "@yae/core/workflows";
+import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows/types.ts";
+import { runWorkflow } from "@yae/core/workflows/utils.ts";
 
 /**
  * Stateless worker that executes workflows on behalf of agents.
