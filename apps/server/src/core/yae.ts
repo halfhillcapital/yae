@@ -31,10 +31,7 @@ export class Yae {
   private busyWorkers = new Map<string, WorkerAgent>();
   private static readonly DEFAULT_POOL_SIZE = 4;
 
-  private constructor(
-    private readonly ctx: AgentContext,
-    private readonly admin: AdminContext,
-  ) {
+  private constructor(private readonly admin: AdminContext) {
     this.adminToken = `yae_admin_${crypto.randomUUID().replace(/-/g, "")}`;
   }
 
@@ -55,10 +52,9 @@ export class Yae {
   static async initialize(): Promise<Yae> {
     if (Yae.instance) return Yae.instance;
 
-    const ctx = await AgentContext.create("yae", DATA_DIR);
     const admin = await AdminContext.create(DATA_DIR + "/yae.db");
 
-    Yae.instance = new Yae(ctx, admin);
+    Yae.instance = new Yae(admin);
     Yae.instance.initializePool();
     return Yae.instance;
   }
@@ -101,13 +97,6 @@ export class Yae {
       available: this.availableWorkers.length,
       busy: this.busyWorkers.size,
     };
-  }
-
-  static getInstance(): Yae {
-    if (!Yae.instance) {
-      throw new Error("Yae not initialized. Call Yae.initialize() first.");
-    }
-    return Yae.instance;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -199,8 +188,6 @@ export class Yae {
     }
     this.userAgents.clear();
 
-    // Close Yae's own connections
-    await this.ctx.close();
     this.admin.close();
 
     console.log("[Yae] Shutdown complete.");
@@ -210,16 +197,11 @@ export class Yae {
   // Yae's Own Persistence
   // ─────────────────────────────────────────────────────────────
 
-  get memory() {
-    return this.ctx.memory;
-  }
-
-  get messages() {
-    return this.ctx.messages;
-  }
-
-  get files() {
-    return this.ctx.files;
+  static getInstance(): Yae {
+    if (!Yae.instance) {
+      throw new Error("Yae not initialized. Call Yae.initialize() first.");
+    }
+    return Yae.instance;
   }
 
   get workflows() {
