@@ -9,7 +9,7 @@ Y.A.E. is an AI agent orchestrator built with Bun, Elysia, and Drizzle ORM. Orga
 ## Monorepo Structure
 
 ```
-apps/server/     → @yae/server   Main server app (Elysia, Drizzle, TanStack AI)
+apps/server/     → @yae/server   Main server app (Elysia, Drizzle)
 apps/cli/        → @yae/cli      Standalone CLI client (zero deps)
 packages/graph/  → @yae/graph    Graph execution engine (zero deps)
 packages/baml/   → @yae/baml     BAML wrapper for LLM calls
