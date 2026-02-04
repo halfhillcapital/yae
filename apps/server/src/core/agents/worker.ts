@@ -1,5 +1,9 @@
 import type { AgentContext } from "@yae/db";
-import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows/types.ts";
+import type { WorkflowRepository } from "@yae/db/repositories/workflow.ts";
+import type {
+  WorkflowDefinition,
+  WorkflowResult,
+} from "@yae/core/workflows/types.ts";
 import { runWorkflow } from "@yae/core/workflows/utils.ts";
 
 /**
@@ -20,8 +24,9 @@ export class WorkerAgent {
     workflow: WorkflowDefinition<T>,
     agentId: string,
     ctx: AgentContext,
+    workflows: WorkflowRepository,
     initialData?: Partial<T>,
   ): Promise<WorkflowResult<T>> {
-    return runWorkflow(workflow, agentId, ctx, initialData);
+    return runWorkflow(workflow, agentId, ctx, workflows, initialData);
   }
 }

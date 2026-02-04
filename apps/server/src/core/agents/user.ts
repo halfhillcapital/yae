@@ -2,7 +2,10 @@ import { Yae } from "@yae/core";
 import { userAgentTurn } from "@yae/baml";
 import type { UserAgentTool } from "@yae/baml";
 import type { AgentContext, Message } from "@yae/db";
-import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows/types.ts";
+import type {
+  WorkflowDefinition,
+  WorkflowResult,
+} from "@yae/core/workflows/types.ts";
 import { summarizeWorkflow } from "@yae/core/workflows/summarize.ts";
 import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";
 
@@ -105,10 +108,6 @@ export class UserAgent {
     return this.ctx.files;
   }
 
-  get workflows() {
-    return this.ctx.workflows;
-  }
-
   async close(): Promise<void> {
     await this.ctx.close();
   }
@@ -129,7 +128,13 @@ export class UserAgent {
     try {
       worker.currentOwner = this.id;
       worker.currentWorkflow = workflow.name;
-      return await worker.execute(workflow, this.id, this.ctx, data);
+      return await worker.execute(
+        workflow,
+        this.id,
+        this.ctx,
+        yae.workflows,
+        data,
+      );
     } finally {
       yae.returnWorker(worker.id);
     }

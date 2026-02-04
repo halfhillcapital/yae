@@ -13,9 +13,9 @@ import * as adminSchema from "./schemas/admin-schema.ts";
 import { MemoryRepository } from "./repositories/memory.ts";
 import { MessagesRepository } from "./repositories/messages.ts";
 import { FileRepository } from "./repositories/files.ts";
-import { WorkflowRepository } from "./repositories/workflow.ts";
 import { WebhookRepository } from "./repositories/webhook.ts";
 import { UserRepository } from "./repositories/user.ts";
+import { WorkflowRepository } from "./repositories/workflow.ts";
 
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
@@ -47,7 +47,6 @@ async function verifyTables(
 export class AgentContext {
   readonly memory: MemoryRepository;
   readonly messages: MessagesRepository;
-  readonly workflows: WorkflowRepository;
   readonly files: FileRepository;
 
   private constructor(
@@ -58,7 +57,6 @@ export class AgentContext {
   ) {
     this.memory = new MemoryRepository(db);
     this.messages = new MessagesRepository(db);
-    this.workflows = new WorkflowRepository(db);
     this.files = new FileRepository(_fs);
   }
 
@@ -87,19 +85,11 @@ export class AgentContext {
       migrationsFolder: AGENT_MIGRATIONS_DIR,
       migrationsTable: "__drizzle_migrations_agent",
     });
-    await verifyTables(db, ["memory", "messages", "workflow_runs"]);
+    await verifyTables(db, ["memory", "messages"]);
 
     const ctx = new AgentContext(agentId, db, client, fs);
     await ctx.memory.load();
     await ctx.messages.load();
-
-    // Clean up any workflows left "running" from a previous crash/restart
-    const failed = await ctx.workflows.markStaleAsFailed();
-    if (failed > 0) {
-      console.log(
-        `[AgentContext] Marked ${failed} stale workflow(s) as failed for agent ${agentId}`,
-      );
-    }
 
     return ctx;
   }
@@ -108,6 +98,7 @@ export class AgentContext {
 export class AdminContext {
   readonly users: UserRepository;
   readonly webhooks: WebhookRepository;
+  readonly workflows: WorkflowRepository;
 
   private constructor(
     db: ReturnType<typeof drizzle>,
@@ -115,6 +106,7 @@ export class AdminContext {
   ) {
     this.users = new UserRepository(db);
     this.webhooks = new WebhookRepository(db);
+    this.workflows = new WorkflowRepository(db);
   }
 
   /** Close the underlying database connection. */
@@ -132,8 +124,23 @@ export class AdminContext {
       migrationsFolder: ADMIN_MIGRATIONS_DIR,
       migrationsTable: "__drizzle_migrations_admin",
     });
-    await verifyTables(db, ["users", "webhooks", "webhook_events"]);
+    await verifyTables(db, [
+      "users",
+      "webhooks",
+      "webhook_events",
+      "workflow_runs",
+    ]);
 
-    return new AdminContext(db, client);
+    const ctx = new AdminContext(db, client);
+
+    // Clean up any workflows left "running" from a previous crash/restart
+    const failed = await ctx.workflows.markStaleAsFailed();
+    if (failed > 0) {
+      console.log(
+        `[AdminContext] Marked ${failed} stale workflow(s) as failed`,
+      );
+    }
+
+    return ctx;
   }
 }

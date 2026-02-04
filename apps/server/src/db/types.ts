@@ -28,6 +28,7 @@ export type WorkflowStatus = "pending" | "running" | "completed" | "failed";
 
 export interface WorkflowRun<T = Record<string, unknown>> {
   id: string;
+  agent_id: string;
   workflow: string;
   status: WorkflowStatus;
   /** Serialized workflow-specific data */

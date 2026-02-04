@@ -1,9 +1,14 @@
+import { tmpdir } from "node:os";
 import { test, expect } from "bun:test";
-import { AgentContext } from "@yae/db/context.ts";
+import { AgentContext, AdminContext } from "@yae/db/context.ts";
 import { defineWorkflow, runWorkflow } from "@yae/core/workflows/utils.ts";
 
 function getTestDbPath(): string {
   return ":memory:"; // Use in-memory DB for tests
+}
+
+function tempAdminDbPath(): string {
+  return `${tmpdir()}/yae-wf-test-${crypto.randomUUID()}.db`;
 }
 
 // ============================================================================
@@ -39,13 +44,20 @@ test("AgentState provides access to context and mutable data", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.steps).toEqual(["checked"]);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -90,14 +102,21 @@ test("Workflow node follows prep -> exec -> post pattern", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.result).toBe(30); // 10 * 3
     expect(result.state.phases).toEqual(["prep", "post"]);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -129,13 +148,20 @@ test("Workflow parallel node processes items in parallel", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.processed).toEqual([2, 4, 6, 8, 10]);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -191,14 +217,21 @@ test("Workflow chains multiple nodes sequentially", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.value).toBe(">>> HELLO WORLD");
     expect(result.state.steps).toEqual(["trim", "uppercase", "prefix"]);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -262,14 +295,21 @@ test("Workflow supports conditional branching", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.status).toBe("approved-high");
     expect(result.state.path).toEqual(["router", "high-value", "finalize"]);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -318,8 +358,14 @@ test("Workflow can read and write to agent memory", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.retrieved).toBe("test-value");
@@ -328,6 +374,7 @@ test("Workflow can read and write to agent memory", async () => {
     expect(ctx.memory.get("test-key")?.content).toBe("test-value");
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -352,21 +399,29 @@ test("Workflow run is persisted to database", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
-    // Verify run is persisted via ctx.workflows
-    const run = await ctx.workflows.get<SimpleData>(result.run);
+    // Verify run is persisted via admin.workflows
+    const run = await admin.workflows.get<SimpleData>(result.run);
     expect(run).not.toBeNull();
     expect(run!.status).toBe("completed");
     expect(run!.state.done).toBe(true);
+    expect(run!.agent_id).toBe("test-agent");
 
-    // Verify history via ctx.workflows
-    const history = await ctx.workflows.listByStatus<SimpleData>("completed");
+    // Verify history via admin.workflows
+    const history = await admin.workflows.listByStatus<SimpleData>("completed");
     expect(history.length).toBeGreaterThan(0);
     expect(history[0]!.id).toBe(result.run);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -395,11 +450,18 @@ test("Workflow accepts initial data override", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx, {
-      name: "custom",
-      count: 42,
-    });
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+      {
+        name: "custom",
+        count: 42,
+      },
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.name).toBe("custom");
@@ -407,6 +469,7 @@ test("Workflow accepts initial data override", async () => {
     expect(result.state.processed).toBe(true);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -434,13 +497,20 @@ test("Workflow handles node errors gracefully", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.errorHandled).toBe(true);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -461,13 +531,20 @@ test("Workflow fails when error is not handled", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("failed");
     expect(result.error).toContain("Unhandled failure");
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -491,13 +568,20 @@ test("Workflow tracks execution duration", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.duration).toBeGreaterThanOrEqual(50);
   } finally {
     await ctx.close();
+    admin.close();
   }
 });
 
@@ -608,8 +692,14 @@ test("Complex workflow: multi-step data processing pipeline", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    const result = await runWorkflow(workflow, "test-agent", ctx);
+    const result = await runWorkflow(
+      workflow,
+      "test-agent",
+      ctx,
+      admin.workflows,
+    );
 
     expect(result.status).toBe("completed");
     expect(result.state.parsed).toEqual({ name: "test", value: 42 });
@@ -627,5 +717,6 @@ test("Complex workflow: multi-step data processing pipeline", async () => {
     expect(ctx.memory.get("processed-data")?.content).toBe("TEST: 84");
   } finally {
     await ctx.close();
+    admin.close();
   }
 });

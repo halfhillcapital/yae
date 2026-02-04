@@ -1,6 +1,7 @@
 import { Flow, createNodes, branch, chain } from "@yae/graph";
 import type { GraphNode, Chainable, FlowConfig } from "@yae/graph";
 import type { AgentContext, WorkflowRun } from "@yae/db";
+import type { WorkflowRepository } from "@yae/db/repositories/workflow.ts";
 import type {
   AgentState,
   WorkflowDefinition,
@@ -200,6 +201,7 @@ export async function runWorkflow<T>(
   workflow: WorkflowDefinition<T>,
   agent_id: string,
   ctx: AgentContext,
+  workflows: WorkflowRepository,
   initialData?: Partial<T>,
 ): Promise<WorkflowResult<T>> {
   const id = crypto.randomUUID();
@@ -209,6 +211,7 @@ export async function runWorkflow<T>(
 
   const run: WorkflowRun<T> = {
     id,
+    agent_id,
     workflow: workflow.name,
     status: "running",
     state,
@@ -216,7 +219,7 @@ export async function runWorkflow<T>(
     updated_at: started_at,
   };
 
-  await ctx.workflows.create(run);
+  await workflows.create(run);
 
   let finalStatus: WorkflowStatus = "completed";
   let error: string | undefined;
@@ -233,7 +236,7 @@ export async function runWorkflow<T>(
 
   try {
     await flow.run(agentState);
-    await ctx.workflows.update(id, {
+    await workflows.update(id, {
       status: "completed",
       state: agentState.data,
       completed_at: Date.now(),
@@ -241,7 +244,7 @@ export async function runWorkflow<T>(
   } catch (err) {
     error = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
     finalStatus = "failed";
-    await ctx.workflows.update(id, {
+    await workflows.update(id, {
       status: "failed",
       state: agentState.data,
       error,

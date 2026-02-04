@@ -27,7 +27,6 @@ describe("AgentContext", () => {
     expect(ctx.memory).toBeDefined();
     expect(ctx.messages).toBeDefined();
     expect(ctx.files).toBeDefined();
-    expect(ctx.workflows).toBeDefined();
   });
 
   test("reopening same database file preserves data", async () => {
@@ -200,12 +199,12 @@ describe("MessagesRepository", () => {
 
 describe("WorkflowRepository", () => {
   test("create and get a workflow run", async () => {
-    const dir = tempDbDir();
     const now = Date.now();
 
-    const ctx1 = await AgentContext.create("agent", dir);
-    await ctx1.workflows.create({
+    const admin1 = await AdminContext.create(tempDbPath());
+    await admin1.workflows.create({
       id: "run-1",
+      agent_id: "agent-1",
       workflow: "test-wf",
       status: "completed",
       state: { counter: 42 },
@@ -214,22 +213,21 @@ describe("WorkflowRepository", () => {
       completed_at: now,
     });
 
-    // Fresh context reads directly from DB (workflows have no cache)
-    const ctx2 = await AgentContext.create("agent", dir);
-    const run = await ctx2.workflows.get<{ counter: number }>("run-1");
+    const run = await admin1.workflows.get<{ counter: number }>("run-1");
     expect(run).not.toBeNull();
+    expect(run!.agent_id).toBe("agent-1");
     expect(run!.workflow).toBe("test-wf");
     expect(run!.status).toBe("completed");
     expect(run!.state.counter).toBe(42);
   });
 
   test("update persists status, state, and error", async () => {
-    const dir = tempDbDir();
     const now = Date.now();
 
-    const ctx1 = await AgentContext.create("agent", dir);
-    await ctx1.workflows.create({
+    const admin = await AdminContext.create(tempDbPath());
+    await admin.workflows.create({
       id: "run-2",
+      agent_id: "agent-1",
       workflow: "wf",
       status: "completed",
       state: { step: 1 },
@@ -238,27 +236,26 @@ describe("WorkflowRepository", () => {
       completed_at: now,
     });
 
-    await ctx1.workflows.update<{ step: number }>("run-2", {
+    await admin.workflows.update<{ step: number }>("run-2", {
       status: "failed",
       state: { step: 3 },
       error: "Something broke",
       completed_at: now + 1000,
     });
 
-    const ctx2 = await AgentContext.create("agent", dir);
-    const run = await ctx2.workflows.get<{ step: number }>("run-2");
+    const run = await admin.workflows.get<{ step: number }>("run-2");
     expect(run!.status).toBe("failed");
     expect(run!.state.step).toBe(3);
     expect(run!.error).toBe("Something broke");
   });
 
-  test("listByStatus filters correctly across reopens", async () => {
-    const dir = tempDbDir();
+  test("listByStatus filters correctly", async () => {
     const now = Date.now();
 
-    const ctx1 = await AgentContext.create("agent", dir);
-    await ctx1.workflows.create({
+    const admin = await AdminContext.create(tempDbPath());
+    await admin.workflows.create({
       id: "c1",
+      agent_id: "agent-1",
       workflow: "wf",
       status: "completed",
       state: {},
@@ -266,8 +263,9 @@ describe("WorkflowRepository", () => {
       updated_at: now,
       completed_at: now,
     });
-    await ctx1.workflows.create({
+    await admin.workflows.create({
       id: "c2",
+      agent_id: "agent-1",
       workflow: "wf",
       status: "completed",
       state: {},
@@ -275,8 +273,9 @@ describe("WorkflowRepository", () => {
       updated_at: now + 1,
       completed_at: now + 1,
     });
-    await ctx1.workflows.create({
+    await admin.workflows.create({
       id: "f1",
+      agent_id: "agent-1",
       workflow: "wf",
       status: "failed",
       state: {},
@@ -286,30 +285,31 @@ describe("WorkflowRepository", () => {
       completed_at: now,
     });
 
-    const ctx2 = await AgentContext.create("agent", dir);
-    const completed = await ctx2.workflows.listByStatus("completed");
+    const completed = await admin.workflows.listByStatus("completed");
     expect(completed.length).toBe(2);
 
-    const failed = await ctx2.workflows.listByStatus("failed");
+    const failed = await admin.workflows.listByStatus("failed");
     expect(failed.length).toBe(1);
     expect(failed[0]!.id).toBe("f1");
   });
 
-  test("markStaleAsFailed marks running workflows on reopen", async () => {
-    const dir = tempDbDir();
+  test("listByAgent filters by agent_id", async () => {
     const now = Date.now();
 
-    const ctx1 = await AgentContext.create("agent", dir);
-    await ctx1.workflows.create({
-      id: "stale-1",
+    const admin = await AdminContext.create(tempDbPath());
+    await admin.workflows.create({
+      id: "a1-run",
+      agent_id: "agent-1",
       workflow: "wf",
-      status: "running",
+      status: "completed",
       state: {},
       started_at: now,
       updated_at: now,
+      completed_at: now,
     });
-    await ctx1.workflows.create({
-      id: "ok-1",
+    await admin.workflows.create({
+      id: "a2-run",
+      agent_id: "agent-2",
       workflow: "wf",
       status: "completed",
       state: {},
@@ -318,20 +318,54 @@ describe("WorkflowRepository", () => {
       completed_at: now,
     });
 
-    // Reopening triggers markStaleAsFailed inside AgentContext.create()
-    const ctx2 = await AgentContext.create("agent", dir);
+    const agent1Runs = await admin.workflows.listByAgent("agent-1");
+    expect(agent1Runs.length).toBe(1);
+    expect(agent1Runs[0]!.id).toBe("a1-run");
 
-    const stale = await ctx2.workflows.get("stale-1");
+    const agent2Runs = await admin.workflows.listByAgent("agent-2");
+    expect(agent2Runs.length).toBe(1);
+    expect(agent2Runs[0]!.id).toBe("a2-run");
+  });
+
+  test("markStaleAsFailed marks running workflows on reopen", async () => {
+    const dbPath = tempDbPath();
+    const now = Date.now();
+
+    const admin1 = await AdminContext.create(dbPath);
+    await admin1.workflows.create({
+      id: "stale-1",
+      agent_id: "agent-1",
+      workflow: "wf",
+      status: "running",
+      state: {},
+      started_at: now,
+      updated_at: now,
+    });
+    await admin1.workflows.create({
+      id: "ok-1",
+      agent_id: "agent-1",
+      workflow: "wf",
+      status: "completed",
+      state: {},
+      started_at: now,
+      updated_at: now,
+      completed_at: now,
+    });
+
+    // Reopening triggers markStaleAsFailed inside AdminContext.create()
+    const admin2 = await AdminContext.create(dbPath);
+
+    const stale = await admin2.workflows.get("stale-1");
     expect(stale!.status).toBe("failed");
     expect(stale!.error).toContain("server restart");
 
-    const ok = await ctx2.workflows.get("ok-1");
+    const ok = await admin2.workflows.get("ok-1");
     expect(ok!.status).toBe("completed");
   });
 
   test("get returns null for missing run", async () => {
-    const ctx = await AgentContext.create("agent", tempDbDir());
-    const run = await ctx.workflows.get("nonexistent");
+    const admin = await AdminContext.create(tempDbPath());
+    const run = await admin.workflows.get("nonexistent");
     expect(run).toBeNull();
   });
 });
@@ -468,24 +502,6 @@ describe("Error propagation", () => {
     await rawClient(dir, "agent").execute("DROP TABLE messages");
 
     expect(ctx.messages.load()).rejects.toThrow();
-  });
-
-  test("workflows.create() throws when table is dropped", async () => {
-    const dir = tempDbDir();
-    const ctx = await AgentContext.create("agent", dir);
-
-    await rawClient(dir, "agent").execute("DROP TABLE workflow_runs");
-
-    expect(
-      ctx.workflows.create({
-        id: "r1",
-        workflow: "wf",
-        status: "running",
-        state: {},
-        started_at: Date.now(),
-        updated_at: Date.now(),
-      }),
-    ).rejects.toThrow();
   });
 
   test("memory.set() does not update cache when DB write fails", async () => {

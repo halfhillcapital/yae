@@ -222,6 +222,10 @@ export class Yae {
     return this.ctx.files;
   }
 
+  get workflows() {
+    return this.admin.workflows;
+  }
+
   get webhooks() {
     return this.admin.webhooks;
   }

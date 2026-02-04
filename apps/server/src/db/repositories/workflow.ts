@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/libsql";
-import { workflowRunsTable } from "../schemas/agent-schema.ts";
+import { workflowRunsTable } from "../schemas/admin-schema.ts";
 import type { WorkflowRun, WorkflowStatus } from "../index.ts";
 
 export class WorkflowRepository {
@@ -9,6 +9,7 @@ export class WorkflowRepository {
   async create<T>(run: WorkflowRun<T>): Promise<void> {
     await this.db.insert(workflowRunsTable).values({
       id: run.id,
+      agent_id: run.agent_id,
       workflow: run.workflow,
       status: run.status,
       state: JSON.stringify(run.state),
@@ -67,6 +68,17 @@ export class WorkflowRepository {
     return rows.map((row) => this.toWorkflowRun<T>(row));
   }
 
+  async listByAgent<T>(agentId: string, limit = 50): Promise<WorkflowRun<T>[]> {
+    const rows = await this.db
+      .select()
+      .from(workflowRunsTable)
+      .where(eq(workflowRunsTable.agent_id, agentId))
+      .orderBy(desc(workflowRunsTable.started_at))
+      .limit(limit);
+
+    return rows.map((row) => this.toWorkflowRun<T>(row));
+  }
+
   /**
    * Mark all "running" workflows as "failed".
    * Called on startup to clean up workflows that were interrupted by a crash/restart.
@@ -88,6 +100,7 @@ export class WorkflowRepository {
 
   private toWorkflowRun<T>(row: {
     id: string;
+    agent_id: string;
     workflow: string;
     status: WorkflowStatus;
     state: string;
@@ -98,6 +111,7 @@ export class WorkflowRepository {
   }): WorkflowRun<T> {
     return {
       id: row.id,
+      agent_id: row.agent_id,
       workflow: row.workflow,
       status: row.status,
       state: JSON.parse(row.state) as T,
