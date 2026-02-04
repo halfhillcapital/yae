@@ -9,10 +9,13 @@ import type {
 import { summarizeWorkflow } from "@yae/core/workflows/summarize.ts";
 import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";
 
-import { getCurrentDatetime, dedent, prose } from "./utils";
+import { getCurrentDatetime, dedent, parseFrontmatter } from "./utils";
 import { fetchLinkup, searchLinkup } from "./tools/websearch";
-import humanBlock from "./prompts/blocks/human.md" with { type: "text" };
-import personaBlock from "./prompts/blocks/persona.md" with { type: "text" };
+import personaRaw from "./prompts/persona.md" with { type: "text" };
+import humanRaw from "./prompts/human.md" with { type: "text" };
+import summaryRaw from "./prompts/conversation.md" with { type: "text" };
+
+const initialBlocks = [personaRaw, humanRaw, summaryRaw].map(parseFrontmatter);
 
 export async function* runAgentLoop(
   message: Message,
@@ -143,27 +146,9 @@ export class UserAgent {
   private async initState(): Promise<void> {
     if (this.memory.has("persona") || this.memory.has("human")) return;
 
-    await this.memory.set(
-      "persona",
-      prose`
-      The persona block: Stores details about your current persona, guiding how you behave and respond. 
-      This helps you to maintain consistency and personality in your interactions.`,
-      personaBlock,
-    );
-    await this.memory.set(
-      "human",
-      prose`
-      The human block: Stores key details about the person you are conversing with, 
-      allowing for more personalized and friend-like conversation.`,
-      humanBlock,
-    );
-    await this.memory.set(
-      "conversation_summary",
-      prose`
-      A rolling summary of earlier conversation history. 
-      Use this to maintain context about past interactions when the full history is no longer available.`,
-      "No conversation history yet.",
-    );
+    for (const block of initialBlocks) {
+      await this.memory.set(block.label, block.description, block.content);
+    }
   }
 
   async executeTool(tool: UserAgentTool): Promise<string> {

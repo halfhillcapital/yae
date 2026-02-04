@@ -51,6 +51,35 @@ export function prose(
   return dedent(strings, ...values).replace(/\n/g, " ");
 }
 
+export type MemoryBlockDef = {
+  label: string;
+  description: string;
+  content: string;
+};
+
+/**
+ * Parses YAML-style frontmatter from a raw markdown string.
+ * Expects `---` delimiters around key: value pairs at the top of the file.
+ *
+ * @example
+ * parseFrontmatter("---\nlabel: foo\ndescription: bar\n---\nContent here")
+ * // → { label: "foo", description: "bar", content: "Content here" }
+ */
+export function parseFrontmatter(raw: string): MemoryBlockDef {
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (!match) throw new Error("Invalid frontmatter format");
+  const meta: Record<string, string> = {};
+  for (const line of match[1]!.split("\n")) {
+    const m = line.match(/^(\w+):\s*(.+)$/);
+    if (m) meta[m[1]!] = m[2]!;
+  }
+  return {
+    label: meta.label ?? "",
+    description: meta.description ?? "",
+    content: match[2]!.trim(),
+  };
+}
+
 export function getCurrentDatetime(date: Date = new Date()): string {
   const dayNames = [
     "Sunday",
