@@ -112,14 +112,14 @@ export class MemoryRepository {
       return "";
     }
 
-    let xml = "<Memory>\n";
+    let xml = "<memory>\n";
     for (const block of this.blocks.values()) {
-      xml += `  <Block label="${block.label}">\n`;
-      xml += `    <Description>${block.description}</Description>\n`;
-      xml += `    <Content>${block.content}</Content>\n`;
-      xml += `  </Block>\n`;
+      xml += `  <block label="${block.label}">\n`;
+      xml += `    <description>${block.description}</description>\n`;
+      xml += `    <content>${block.content}</content>\n`;
+      xml += `  </block>\n`;
     }
-    xml += "</Memory>";
+    xml += "</memory>";
     return xml;
   }
 

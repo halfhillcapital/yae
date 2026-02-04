@@ -9,7 +9,8 @@ import {
   type Webhook,
   type WebhookEvent,
 } from "@yae/db";
-import { UserAgent, WorkerAgent } from "./agents";
+import { UserAgent } from "./agents/user.ts";
+import { WorkerAgent } from "./agents/worker.ts";
 
 export type HealthStatus = {
   status: "ok" | "degraded" | "error";
@@ -137,7 +138,10 @@ export class Yae {
     return new Map(this.userAgents);
   }
 
-  deleteUserAgent(userId: string): boolean {
+  async deleteUserAgent(userId: string): Promise<boolean> {
+    const agent = this.userAgents.get(userId);
+    if (!agent) return false;
+    await agent.close();
     return this.userAgents.delete(userId);
   }
 
@@ -146,23 +150,23 @@ export class Yae {
   // ─────────────────────────────────────────────────────────────
 
   async registerUser(name: string, role: UserRole = "user"): Promise<User> {
-    return this.admin.registerUser(name, role);
+    return this.admin.users.register(name, role);
   }
 
   async getUserByToken(token: string): Promise<User | null> {
-    return this.admin.getUserByToken(token);
+    return this.admin.users.getByToken(token);
   }
 
   async getUserById(id: string): Promise<User | null> {
-    return this.admin.getUserById(id);
+    return this.admin.users.getById(id);
   }
 
   async listUsers(): Promise<User[]> {
-    return this.admin.listUsers();
+    return this.admin.users.list();
   }
 
   async deleteUser(id: string): Promise<boolean> {
-    return this.admin.deleteUser(id);
+    return this.admin.users.delete(id);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -189,7 +193,16 @@ export class Yae {
     this.availableWorkers = [];
     this.busyWorkers.clear();
 
+    // Close all agent connections
+    for (const agent of this.userAgents.values()) {
+      await agent.close();
+    }
     this.userAgents.clear();
+
+    // Close Yae's own connections
+    await this.ctx.close();
+    this.admin.close();
+
     console.log("[Yae] Shutdown complete.");
   }
 

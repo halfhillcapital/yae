@@ -155,7 +155,7 @@ describe("MessagesRepository", () => {
     await ctx1.messages.save({ role: "assistant", content: "Hi there" });
 
     const ctx2 = await AgentContext.create("agent", dir);
-    const all = ctx2.messages.getAll();
+    const all = ctx2.messages.getMessageHistory();
     expect(all.length).toBe(2);
     expect(all[0]!.role).toBe("user");
     expect(all[0]!.content).toBe("Hello");
@@ -171,7 +171,7 @@ describe("MessagesRepository", () => {
     await ctx1.messages.save({ role: "assistant", content: "a" });
 
     const ctx2 = await AgentContext.create("agent", dir);
-    const roles = ctx2.messages.getAll().map((m) => m.role);
+    const roles = ctx2.messages.getMessageHistory().map((m) => m.role);
     expect(roles).toEqual(["user", "assistant"]);
   });
 
@@ -184,13 +184,13 @@ describe("MessagesRepository", () => {
     await ctx1.messages.save({ role: "user", content: "third" });
 
     const ctx2 = await AgentContext.create("agent", dir);
-    const contents = ctx2.messages.getAll().map((m) => m.content);
+    const contents = ctx2.messages.getMessageHistory().map((m) => m.content);
     expect(contents).toEqual(["first", "second", "third"]);
   });
 
   test("empty database loads empty messages", async () => {
     const ctx = await AgentContext.create("agent", tempDbDir());
-    expect(ctx.messages.getAll()).toEqual([]);
+    expect(ctx.messages.getMessageHistory()).toEqual([]);
   });
 });
 
@@ -345,10 +345,10 @@ describe("AdminContext", () => {
     const dbPath = tempDbPath();
 
     const admin1 = await AdminContext.create(dbPath);
-    const user = await admin1.registerUser("alice");
+    const user = await admin1.users.register("alice");
 
     const admin2 = await AdminContext.create(dbPath);
-    const found = await admin2.getUserByToken(user.token);
+    const found = await admin2.users.getByToken(user.token);
     expect(found).not.toBeNull();
     expect(found!.id).toBe(user.id);
     expect(found!.name).toBe("alice");
@@ -358,10 +358,10 @@ describe("AdminContext", () => {
     const dbPath = tempDbPath();
 
     const admin1 = await AdminContext.create(dbPath);
-    const user = await admin1.registerUser("bob", "admin");
+    const user = await admin1.users.register("bob", "admin");
 
     const admin2 = await AdminContext.create(dbPath);
-    const found = await admin2.getUserById(user.id);
+    const found = await admin2.users.getById(user.id);
     expect(found).not.toBeNull();
     expect(found!.name).toBe("bob");
     expect(found!.role).toBe("admin");
@@ -371,12 +371,12 @@ describe("AdminContext", () => {
     const dbPath = tempDbPath();
 
     const admin1 = await AdminContext.create(dbPath);
-    await admin1.registerUser("u1");
-    await admin1.registerUser("u2");
-    await admin1.registerUser("u3");
+    await admin1.users.register("u1");
+    await admin1.users.register("u2");
+    await admin1.users.register("u3");
 
     const admin2 = await AdminContext.create(dbPath);
-    const users = await admin2.listUsers();
+    const users = await admin2.users.list();
     expect(users.length).toBe(3);
     expect(users.map((u) => u.name).sort()).toEqual(["u1", "u2", "u3"]);
   });
@@ -385,25 +385,25 @@ describe("AdminContext", () => {
     const dbPath = tempDbPath();
 
     const admin1 = await AdminContext.create(dbPath);
-    const user = await admin1.registerUser("to-delete");
-    await admin1.deleteUser(user.id);
+    const user = await admin1.users.register("to-delete");
+    await admin1.users.delete(user.id);
 
     const admin2 = await AdminContext.create(dbPath);
-    const found = await admin2.getUserById(user.id);
+    const found = await admin2.users.getById(user.id);
     expect(found).toBeNull();
 
-    const users = await admin2.listUsers();
+    const users = await admin2.users.list();
     expect(users.length).toBe(0);
   });
 
   test("returns null for unknown token", async () => {
     const admin = await AdminContext.create(tempDbPath());
-    expect(await admin.getUserByToken("fake")).toBeNull();
+    expect(await admin.users.getByToken("fake")).toBeNull();
   });
 
   test("deleteUser returns false for unknown id", async () => {
     const admin = await AdminContext.create(tempDbPath());
-    expect(await admin.deleteUser("fake")).toBe(false);
+    expect(await admin.users.delete("fake")).toBe(false);
   });
 });
 
@@ -426,9 +426,7 @@ describe("Error propagation", () => {
 
     await rawClient(dir, "agent").execute("DROP TABLE memory");
 
-    expect(
-      ctx.memory.set("key", "desc", "value"),
-    ).rejects.toThrow();
+    expect(ctx.memory.set("key", "desc", "value")).rejects.toThrow();
   });
 
   test("memory.delete() throws when table is dropped", async () => {
@@ -547,7 +545,7 @@ describe("FileRepository (AgentFS isolation)", () => {
     // Drizzle data must still be intact
     const ctx2 = await AgentContext.create("agent", dir);
     expect(ctx2.memory.get("before")!.content).toBe("value-before");
-    expect(ctx2.messages.getAll()[0]!.content).toBe("hello");
+    expect(ctx2.messages.getMessageHistory()[0]!.content).toBe("hello");
   });
 
   test("tool calls do not corrupt the Drizzle database", async () => {
@@ -588,7 +586,7 @@ describe("FileRepository (AgentFS isolation)", () => {
     const ctx2 = await AgentContext.create("agent", dir);
     expect(ctx2.memory.get("m1")!.content).toBe("memory-1");
     expect(ctx2.memory.get("m2")!.content).toBe("memory-2");
-    expect(ctx2.messages.getAll().length).toBe(2);
+    expect(ctx2.messages.getMessageHistory().length).toBe(2);
 
     // Verify AgentFS side (same context is fine — no cache layer)
     const f1 = await ctx2.files.readFile("/f1.txt", "utf-8");

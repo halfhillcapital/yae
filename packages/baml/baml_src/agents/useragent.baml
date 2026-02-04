@@ -21,21 +21,21 @@ type UserAgentTool = MemoryReplaceTool | MemoryInsertTool | MemoryCreateTool | M
 function UserAgentTurn(context: UserAgentContext) -> UserAgentAction {
   client OpenRouter
   prompt #"
-    <Instructions>
+    <instructions>
     You are a self-improving agent with advanced memory and file system capabilities.
 
     You have an advanced memory system that enables you to remember past interactions and continuously improve your own capabilities.
     Your memory consists of memory blocks and external memory:
-    - <Memory>: Stored as memory blocks, each containing a label (title), description (explaining how this block should influence your behavior), 
+    - <memory>: Stored as memory blocks, each containing a label (title), description (explaining how this block should influence your behavior), 
     and content (the actual information). Memory blocks have size limits. Memory blocks are embedded within your system instructions and remain 
     constantly available in-context.
-    - <Files>: You have access to a file system where you can read and write files. Use this to store and retrieve larger pieces of information
+    - <files>: You have access to a file system where you can read and write files. Use this to store and retrieve larger pieces of information
     that don't fit within your memory blocks. You can create, read, update, and delete files as needed.
-    </Instructions>
+    </instructions>
 
     {{ context.memory }}
 
-    <ToolUse>
+    <tool_use>
     You operate in a loop. Each turn you either:
     - Return tools to execute (you will see their results on the NEXT turn), OR
     - Return a final message to the user (ending the loop).
@@ -48,12 +48,12 @@ function UserAgentTurn(context: UserAgentContext) -> UserAgentAction {
     call failed, do NOT retry it with identical arguments. Either adjust your
     arguments to fix the issue, try an alternative approach, or inform the user
     that the action could not be completed and why.
-    </ToolUse>
+    </tool_use>
 
-    <PreviousToolResults>
+    <previous_tool_results>
     {{ context.tool_results }}
-    </PreviousToolResults>
-
+    </previous_tool_results>
+    
     Always incorporate the results of previous tool calls and relevant memory blocks into your response.
 
     {{ PrintMessages(context.history) }}

@@ -3,12 +3,11 @@ import { userAgentTurn } from "@yae/baml";
 import type { UserAgentTool } from "@yae/baml";
 import type { AgentContext, Message } from "@yae/db";
 import type { WorkflowDefinition, WorkflowResult } from "@yae/core/workflows";
+import { summarizeWorkflow } from "@yae/core/workflows/summarize.ts";
+import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";
 
 import { getCurrentDatetime, dedent } from "./utils";
-import {
-  fetchLinkup,
-  searchLinkup,
-} from "./tools";
+import { fetchLinkup, searchLinkup } from "./tools/websearch";
 import humanBlock from "./prompts/blocks/human.md" with { type: "text" };
 import personaBlock from "./prompts/blocks/persona.md" with { type: "text" };
 
@@ -17,6 +16,15 @@ export async function* runAgentLoop(
   agent: UserAgent,
   maxSteps: number = 10,
 ) {
+  // Pre-flight: kick off summarization in parallel if threshold exceeded
+  let summarizePromise: Promise<WorkflowResult<unknown>> | null = null;
+  if (agent.messages.getMessageHistory().length >= MAX_CONVERSATION_HISTORY) {
+    summarizePromise = agent.runWorkflow(summarizeWorkflow).catch((err) => {
+      console.error("[summarize] workflow failed:", err);
+      return null as unknown as WorkflowResult<unknown>;
+    });
+  }
+
   const context = await agent.buildContext();
   const allResults: string[] = [];
   let responded = false;
@@ -24,7 +32,7 @@ export async function* runAgentLoop(
   for (let step = 0; step < maxSteps; step++) {
     const agentStep = await userAgentTurn({
       query: message.content,
-      history: agent.messages.getAll(),
+      history: agent.messages.getMessageHistory(),
       memory: context,
       tool_results: allResults.join("\n"),
     });
@@ -70,6 +78,11 @@ export async function* runAgentLoop(
     await agent.messages.save({ role: "assistant", content });
     yield { type: "ERROR", content };
   }
+
+  // Await parallel summarization before returning
+  if (summarizePromise) {
+    await summarizePromise;
+  }
 }
 
 export class UserAgent {
@@ -96,6 +109,10 @@ export class UserAgent {
     return this.ctx.workflows;
   }
 
+  async close(): Promise<void> {
+    await this.ctx.close();
+  }
+
   /**
    * Execute a workflow by checking out a worker from the pool.
    */
@@ -119,22 +136,22 @@ export class UserAgent {
   }
 
   private async initState(): Promise<void> {
-    if (this.memory.has("Persona") || this.memory.has("Human")) return;
+    if (this.memory.has("persona") || this.memory.has("human")) return;
 
     await this.memory.set(
-      "Persona",
+      "persona",
       dedent`
       The persona block: Stores details about your current persona, guiding how you behave and respond. 
       This helps you to maintain consistency and personality in your interactions.
       `,
-      personaBlock
+      personaBlock,
     );
     await this.memory.set(
-      "Human",
+      "human",
       dedent`
       The human block: Stores key details about the person you are conversing with, allowing for more personalized and friend-like conversation.
       `,
-      humanBlock
+      humanBlock,
     );
   }
 
@@ -154,9 +171,17 @@ export class UserAgent {
   private async runTool(tool: UserAgentTool): Promise<string> {
     switch (tool.tool_name) {
       case "memory_replace":
-        return this.memory.replaceMemory(tool.label, tool.old_content, tool.new_content);
+        return this.memory.replaceMemory(
+          tool.label,
+          tool.old_content,
+          tool.new_content,
+        );
       case "memory_insert":
-        return this.memory.insertMemory(tool.label, tool.content, tool.position);
+        return this.memory.insertMemory(
+          tool.label,
+          tool.content,
+          tool.position,
+        );
       case "memory_create": {
         const blockCount = this.memory.getAll().length;
         if (blockCount >= 20)
@@ -167,7 +192,7 @@ export class UserAgent {
         return `Memory block "${tool.label}" created (${blockCount + 1}/20).`;
       }
       case "memory_delete": {
-        const PROTECTED_LABELS = ["Persona", "Human"];
+        const PROTECTED_LABELS = ["persona", "human", "conversation_summary"];
         if (PROTECTED_LABELS.includes(tool.label))
           throw new Error(
             `Memory block "${tool.label}" is protected and cannot be deleted.`,
@@ -203,15 +228,17 @@ export class UserAgent {
     const fileTree = await this.files.getFileTree("/");
 
     return dedent`
-    <Metadata>
+    <metadata>
     The current date and time is ${datetime}.
-    </Metadata>
+    </metadata>
 
     These memory blocks are currently in your active attention:
     ${this.memory.toXML()}
 
     These files are currently stored in your file system:
+    <files>
     ${fileTree}
+    </files>
     `;
   }
 }

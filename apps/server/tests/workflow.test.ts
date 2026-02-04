@@ -21,9 +21,9 @@ test("AgentState provides access to context and mutable data", async () => {
         name: "check-context",
         post: (state) => {
           // Verify AgentState structure
-          expect(state.memory).toBeDefined();
-          expect(state.messages).toBeDefined();
-          expect(state.files).toBeDefined();
+          expect(state.ctx.memory).toBeDefined();
+          expect(state.ctx.messages).toBeDefined();
+          expect(state.ctx.files).toBeDefined();
           expect(state.data).toBeDefined();
           expect(state.run).toBeDefined();
           expect(state.run.id).toBeDefined();
@@ -39,10 +39,14 @@ test("AgentState provides access to context and mutable data", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.steps).toEqual(["checked"]);
+    expect(result.status).toBe("completed");
+    expect(result.state.steps).toEqual(["checked"]);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -86,11 +90,15 @@ test("Workflow node follows prep -> exec -> post pattern", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.result).toBe(30); // 10 * 3
-  expect(result.state.phases).toEqual(["prep", "post"]);
+    expect(result.status).toBe("completed");
+    expect(result.state.result).toBe(30); // 10 * 3
+    expect(result.state.phases).toEqual(["prep", "post"]);
+  } finally {
+    await ctx.close();
+  }
 });
 
 test("Workflow parallel node processes items in parallel", async () => {
@@ -121,10 +129,14 @@ test("Workflow parallel node processes items in parallel", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.processed).toEqual([2, 4, 6, 8, 10]);
+    expect(result.status).toBe("completed");
+    expect(result.state.processed).toEqual([2, 4, 6, 8, 10]);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -179,11 +191,15 @@ test("Workflow chains multiple nodes sequentially", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.value).toBe(">>> HELLO WORLD");
-  expect(result.state.steps).toEqual(["trim", "uppercase", "prefix"]);
+    expect(result.status).toBe("completed");
+    expect(result.state.value).toBe(">>> HELLO WORLD");
+    expect(result.state.steps).toEqual(["trim", "uppercase", "prefix"]);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -246,11 +262,15 @@ test("Workflow supports conditional branching", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.status).toBe("approved-high");
-  expect(result.state.path).toEqual(["router", "high-value", "finalize"]);
+    expect(result.status).toBe("completed");
+    expect(result.state.status).toBe("approved-high");
+    expect(result.state.path).toEqual(["router", "high-value", "finalize"]);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -275,7 +295,7 @@ test("Workflow can read and write to agent memory", async () => {
       const saveToMemory = node({
         name: "save-to-memory",
         post: async (state) => {
-          await state.memory.set(
+          await state.ctx.memory.set(
             state.data.key,
             "Test memory block",
             state.data.value,
@@ -287,7 +307,7 @@ test("Workflow can read and write to agent memory", async () => {
       const readFromMemory = node({
         name: "read-from-memory",
         post: (state) => {
-          const block = state.memory.get(state.data.key);
+          const block = state.ctx.memory.get(state.data.key);
           state.data.retrieved = block?.content;
           return undefined;
         },
@@ -298,13 +318,17 @@ test("Workflow can read and write to agent memory", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.retrieved).toBe("test-value");
+    expect(result.status).toBe("completed");
+    expect(result.state.retrieved).toBe("test-value");
 
-  // Verify memory persists
-  expect(ctx.memory.get("test-key")?.content).toBe("test-value");
+    // Verify memory persists
+    expect(ctx.memory.get("test-key")?.content).toBe("test-value");
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -328,18 +352,22 @@ test("Workflow run is persisted to database", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  // Verify run is persisted via ctx.workflows
-  const run = await ctx.workflows.get<SimpleData>(result.run);
-  expect(run).not.toBeNull();
-  expect(run!.status).toBe("completed");
-  expect(run!.state.done).toBe(true);
+    // Verify run is persisted via ctx.workflows
+    const run = await ctx.workflows.get<SimpleData>(result.run);
+    expect(run).not.toBeNull();
+    expect(run!.status).toBe("completed");
+    expect(run!.state.done).toBe(true);
 
-  // Verify history via ctx.workflows
-  const history = await ctx.workflows.listByStatus<SimpleData>("completed");
-  expect(history.length).toBeGreaterThan(0);
-  expect(history[0]!.id).toBe(result.run);
+    // Verify history via ctx.workflows
+    const history = await ctx.workflows.listByStatus<SimpleData>("completed");
+    expect(history.length).toBeGreaterThan(0);
+    expect(history[0]!.id).toBe(result.run);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -367,16 +395,19 @@ test("Workflow accepts initial data override", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx, {
+      name: "custom",
+      count: 42,
+    });
 
-  const result = await runWorkflow(workflow, "test-agent", ctx, {
-    name: "custom",
-    count: 42,
-  });
-
-  expect(result.status).toBe("completed");
-  expect(result.state.name).toBe("custom");
-  expect(result.state.count).toBe(42);
-  expect(result.state.processed).toBe(true);
+    expect(result.status).toBe("completed");
+    expect(result.state.name).toBe("custom");
+    expect(result.state.count).toBe(42);
+    expect(result.state.processed).toBe(true);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -403,10 +434,14 @@ test("Workflow handles node errors gracefully", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.errorHandled).toBe(true);
+    expect(result.status).toBe("completed");
+    expect(result.state.errorHandled).toBe(true);
+  } finally {
+    await ctx.close();
+  }
 });
 
 test("Workflow fails when error is not handled", async () => {
@@ -426,10 +461,14 @@ test("Workflow fails when error is not handled", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("failed");
-  expect(result.error).toContain("Unhandled failure");
+    expect(result.status).toBe("failed");
+    expect(result.error).toContain("Unhandled failure");
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -452,10 +491,14 @@ test("Workflow tracks execution duration", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.duration).toBeGreaterThanOrEqual(50);
+    expect(result.status).toBe("completed");
+    expect(result.duration).toBeGreaterThanOrEqual(50);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // ============================================================================
@@ -541,7 +584,7 @@ test("Complex workflow: multi-step data processing pipeline", async () => {
         name: "save",
         post: async (state) => {
           if (state.data.transformed) {
-            await state.memory.set(
+            await state.ctx.memory.set(
               "processed-data",
               "Result of processing pipeline",
               state.data.transformed,
@@ -565,20 +608,24 @@ test("Complex workflow: multi-step data processing pipeline", async () => {
   });
 
   const ctx = await AgentContext.create("test-agent", getTestDbPath());
-  const result = await runWorkflow(workflow, "test-agent", ctx);
+  try {
+    const result = await runWorkflow(workflow, "test-agent", ctx);
 
-  expect(result.status).toBe("completed");
-  expect(result.state.parsed).toEqual({ name: "test", value: 42 });
-  expect(result.state.validated).toBe(true);
-  expect(result.state.transformed).toBe("TEST: 84");
-  expect(result.state.saved).toBe(true);
-  expect(result.state.steps).toEqual([
-    "parsed",
-    "validated",
-    "transformed",
-    "saved",
-  ]);
+    expect(result.status).toBe("completed");
+    expect(result.state.parsed).toEqual({ name: "test", value: 42 });
+    expect(result.state.validated).toBe(true);
+    expect(result.state.transformed).toBe("TEST: 84");
+    expect(result.state.saved).toBe(true);
+    expect(result.state.steps).toEqual([
+      "parsed",
+      "validated",
+      "transformed",
+      "saved",
+    ]);
 
-  // Verify data was saved to memory
-  expect(ctx.memory.get("processed-data")?.content).toBe("TEST: 84");
+    // Verify data was saved to memory
+    expect(ctx.memory.get("processed-data")?.content).toBe("TEST: 84");
+  } finally {
+    await ctx.close();
+  }
 });

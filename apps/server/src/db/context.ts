@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 import { AgentFS } from "agentfs-sdk";
 import { drizzle } from "drizzle-orm/libsql";
@@ -15,7 +15,7 @@ import { MessagesRepository } from "./repositories/messages.ts";
 import { FileRepository } from "./repositories/files.ts";
 import { WorkflowRepository } from "./repositories/workflow.ts";
 import { WebhookRepository } from "./repositories/webhook.ts";
-import type { User, UserRole } from "./types.ts";
+import { UserRepository } from "./repositories/user.ts";
 
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
@@ -47,18 +47,25 @@ async function verifyTables(
 export class AgentContext {
   readonly memory: MemoryRepository;
   readonly messages: MessagesRepository;
-  readonly files: FileRepository;
   readonly workflows: WorkflowRepository;
+  readonly files: FileRepository;
 
   private constructor(
     public readonly agentId: string,
     db: ReturnType<typeof drizzle>,
-    fs: AgentFS,
+    private readonly _db: ReturnType<typeof createClient>,
+    private readonly _fs: AgentFS,
   ) {
     this.memory = new MemoryRepository(db);
     this.messages = new MessagesRepository(db);
-    this.files = new FileRepository(fs);
     this.workflows = new WorkflowRepository(db);
+    this.files = new FileRepository(_fs);
+  }
+
+  /** Close the underlying database and filesystem connections. */
+  async close(): Promise<void> {
+    this._db.close();
+    await this._fs.close();
   }
 
   static async create(agentId: string, dbPath: string): Promise<AgentContext> {
@@ -82,7 +89,7 @@ export class AgentContext {
     });
     await verifyTables(db, ["memory", "messages", "workflow_runs"]);
 
-    const ctx = new AgentContext(agentId, db, fs);
+    const ctx = new AgentContext(agentId, db, client, fs);
     await ctx.memory.load();
     await ctx.messages.load();
 
@@ -99,10 +106,20 @@ export class AgentContext {
 }
 
 export class AdminContext {
+  readonly users: UserRepository;
   readonly webhooks: WebhookRepository;
 
-  private constructor(private readonly db: ReturnType<typeof drizzle>) {
+  private constructor(
+    db: ReturnType<typeof drizzle>,
+    private readonly _db: ReturnType<typeof createClient>,
+  ) {
+    this.users = new UserRepository(db);
     this.webhooks = new WebhookRepository(db);
+  }
+
+  /** Close the underlying database connection. */
+  close(): void {
+    this._db.close();
   }
 
   static async create(dbPath: string): Promise<AdminContext> {
@@ -117,54 +134,6 @@ export class AdminContext {
     });
     await verifyTables(db, ["users", "webhooks", "webhook_events"]);
 
-    return new AdminContext(db);
-  }
-
-  async registerUser(name: string, role: UserRole = "user"): Promise<User> {
-    const id = crypto.randomUUID();
-    const token = `yae_${crypto.randomUUID().replace(/-/g, "")}`;
-    const created_at = Date.now();
-
-    await this.db.insert(adminSchema.usersTable).values({
-      id,
-      name,
-      token,
-      role,
-      created_at,
-    });
-
-    return { id, name, token, role, created_at };
-  }
-
-  async getUserByToken(token: string): Promise<User | null> {
-    const rows = await this.db
-      .select()
-      .from(adminSchema.usersTable)
-      .where(eq(adminSchema.usersTable.token, token))
-      .limit(1);
-
-    return rows[0] ?? null;
-  }
-
-  async getUserById(id: string): Promise<User | null> {
-    const rows = await this.db
-      .select()
-      .from(adminSchema.usersTable)
-      .where(eq(adminSchema.usersTable.id, id))
-      .limit(1);
-
-    return rows[0] ?? null;
-  }
-
-  async listUsers(): Promise<User[]> {
-    return this.db.select().from(adminSchema.usersTable);
-  }
-
-  async deleteUser(id: string): Promise<boolean> {
-    const result = await this.db
-      .delete(adminSchema.usersTable)
-      .where(eq(adminSchema.usersTable.id, id));
-
-    return result.rowsAffected > 0;
+    return new AdminContext(db, client);
   }
 }

@@ -41,7 +41,9 @@ export const webhookRoutes = new Elysia({ name: "webhook-routes" })
       return { error: "Missing x-webhook-timestamp header" };
     }
 
-    if (!verifyWebhookSignature(rawBuffer, webhook.secret, signature, timestamp)) {
+    if (
+      !verifyWebhookSignature(rawBuffer, webhook.secret, signature, timestamp)
+    ) {
       set.status = 401;
       return { error: "Invalid signature" };
     }
@@ -49,7 +51,10 @@ export const webhookRoutes = new Elysia({ name: "webhook-routes" })
     // Idempotency: de-duplicate by x-webhook-id
     const externalId = headers["x-webhook-id"] ?? null;
     if (externalId) {
-      const existing = await yae.webhooks.findByExternalId(webhook.id, externalId);
+      const existing = await yae.webhooks.findByExternalId(
+        webhook.id,
+        externalId,
+      );
       if (existing) {
         return { received: true, event_id: existing.id };
       }

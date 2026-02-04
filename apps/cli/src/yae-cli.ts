@@ -303,9 +303,7 @@ async function streamChat(
               );
               break;
             case "TOOL_RESULT":
-              process.stdout.write(
-                `${c.dim}    ${chunk.content}${c.reset}\n`,
-              );
+              process.stdout.write(`${c.dim}    ${chunk.content}${c.reset}\n`);
               break;
             case "TOOL_ERROR":
               process.stdout.write(
@@ -318,9 +316,7 @@ async function streamChat(
               );
               break;
             case "ERROR":
-              process.stdout.write(
-                `\n${c.red}✗ ${chunk.content}${c.reset}\n`,
-              );
+              process.stdout.write(`\n${c.red}✗ ${chunk.content}${c.reset}\n`);
               break;
           }
         }

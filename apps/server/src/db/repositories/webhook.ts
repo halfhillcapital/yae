@@ -77,9 +77,7 @@ export class WebhookRepository {
   // Webhook Events
   // ─────────────────────────────────────────────────────────────
 
-  async recordEvent(
-    event: Omit<WebhookEvent, "id">,
-  ): Promise<WebhookEvent> {
+  async recordEvent(event: Omit<WebhookEvent, "id">): Promise<WebhookEvent> {
     const id = crypto.randomUUID();
 
     await this.db.insert(webhookEventsTable).values({

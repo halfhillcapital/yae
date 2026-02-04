@@ -4,14 +4,7 @@
 
 import { Flow, createNodes, branch, chain } from "@yae/graph";
 import type { GraphNode, Chainable, FlowConfig } from "@yae/graph";
-import type {
-  AgentContext,
-  MemoryRepository,
-  MessagesRepository,
-  FileRepository,
-  WorkflowStatus,
-  WorkflowRun,
-} from "@yae/db";
+import type { AgentContext, WorkflowStatus, WorkflowRun } from "@yae/db";
 
 /**
  * Shared state object passed through workflow nodes.
@@ -19,12 +12,8 @@ import type {
  * and mutable workflow-specific data.
  */
 export interface AgentState<T = Record<string, unknown>> {
-  /** Labeled memory blocks with in-memory cache */
-  readonly memory: MemoryRepository;
-  /** Conversation history */
-  readonly messages: MessagesRepository;
-  /** File system operations */
-  readonly files: FileRepository;
+  /** Agent context providing access to memory, messages, and files */
+  readonly ctx: AgentContext;
   /** Workflow-specific data (mutable) */
   data: T;
   /** Runtime info about the current workflow execution */
@@ -276,9 +265,7 @@ export async function runWorkflow<T>(
   let error: string | undefined;
 
   const agentState: AgentState<T> = {
-    memory: ctx.memory,
-    messages: ctx.messages,
-    files: ctx.files,
+    ctx,
     data: state,
     run: {
       id,
