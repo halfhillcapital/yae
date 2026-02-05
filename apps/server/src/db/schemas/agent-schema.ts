@@ -11,6 +11,9 @@ export const memoryTable = table("memory", {
   label: text().notNull().unique(),
   description: text().notNull(),
   content: text().notNull(),
+  protected: int().notNull().default(0),
+  readonly: int().notNull().default(0),
+  limit: int(),
   updated_at: int()
     .notNull()
     .default(Date.now())

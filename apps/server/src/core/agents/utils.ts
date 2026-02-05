@@ -1,3 +1,5 @@
+import type { Memory } from "@yae/db";
+
 /**
  * Tagged template literal that strips common leading indentation from
  * multi-line strings. Removes the first and last lines if they are empty
@@ -51,21 +53,21 @@ export function prose(
   return dedent(strings, ...values).replace(/\n/g, " ");
 }
 
-export type MemoryBlockDef = {
-  label: string;
-  description: string;
-  content: string;
-};
-
 /**
  * Parses YAML-style frontmatter from a raw markdown string.
  * Expects `---` delimiters around key: value pairs at the top of the file.
  *
+ * Supported frontmatter keys:
+ * - `label` — unique identifier
+ * - `description` — behavioural description
+ * - `protected` — `true` prevents deletion
+ * - `readonly` — `true` prevents edits
+ * - `limit` — max character count for content
+ *
  * @example
- * parseFrontmatter("---\nlabel: foo\ndescription: bar\n---\nContent here")
- * // → { label: "foo", description: "bar", content: "Content here" }
+ * parseFrontmatter("---\nlabel: foo\nprotected: true\nlimit: 500\n---\nContent")
  */
-export function parseFrontmatter(raw: string): MemoryBlockDef {
+export function parseFrontmatter(raw: string): Memory {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) throw new Error("Invalid frontmatter format");
   const meta: Record<string, string> = {};
@@ -77,6 +79,9 @@ export function parseFrontmatter(raw: string): MemoryBlockDef {
     label: meta.label ?? "",
     description: meta.description ?? "",
     content: match[2]!.trim(),
+    protected: meta.protected === "true",
+    readonly: meta.readonly === "true",
+    limit: meta.limit ? parseInt(meta.limit, 10) : undefined,
   };
 }
 

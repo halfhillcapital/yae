@@ -21,6 +21,9 @@ export type Memory = {
   label: string;
   description: string;
   content: string;
+  protected?: boolean;
+  readonly?: boolean;
+  limit?: number;
   updated_at?: number;
 };
 

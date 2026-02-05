@@ -106,7 +106,11 @@ describe("MemoryRepository", () => {
 
     const ctx1 = await AgentContext.create("agent", dir);
     await ctx1.memory.set("doc", "A document", "Hello world, hello universe");
-    await ctx1.memory.replaceMemory("doc", "hello universe", "hello galaxy");
+    await ctx1.memory.toolReplaceMemory(
+      "doc",
+      "hello universe",
+      "hello galaxy",
+    );
 
     const ctx2 = await AgentContext.create("agent", dir);
     expect(ctx2.memory.get("doc")!.content).toBe("Hello world, hello galaxy");
@@ -117,7 +121,7 @@ describe("MemoryRepository", () => {
 
     const ctx1 = await AgentContext.create("agent", dir);
     await ctx1.memory.set("doc", "desc", "line0\nline1\nline2");
-    await ctx1.memory.insertMemory("doc", "inserted", "beginning");
+    await ctx1.memory.toolInsertMemory("doc", "inserted", "beginning");
 
     const ctx2 = await AgentContext.create("agent", dir);
     expect(ctx2.memory.get("doc")!.content).toBe(
@@ -127,17 +131,17 @@ describe("MemoryRepository", () => {
 
   test("replaceMemory() throws on missing block", async () => {
     const ctx = await AgentContext.create("agent", tempDbDir());
-    expect(ctx.memory.replaceMemory("missing", "old", "new")).rejects.toThrow(
-      "does not exist",
-    );
+    expect(
+      ctx.memory.toolReplaceMemory("missing", "old", "new"),
+    ).rejects.toThrow("does not exist");
   });
 
   test("replaceMemory() throws when old content not found", async () => {
     const ctx = await AgentContext.create("agent", tempDbDir());
     await ctx.memory.set("doc", "desc", "actual content");
     expect(
-      ctx.memory.replaceMemory("doc", "nonexistent", "new"),
-    ).rejects.toThrow("oldContent was not found");
+      ctx.memory.toolReplaceMemory("doc", "nonexistent", "new"),
+    ).rejects.toThrow("was not found");
   });
 });
 

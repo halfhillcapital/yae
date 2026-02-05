@@ -20,26 +20,57 @@ export class MemoryRepository {
     return Array.from(this.blocks.values());
   }
 
+  getCount(): number {
+    return this.blocks.size;
+  }
+
+  async load() {
+    const rows = await this.db.select().from(memoryTable);
+    this.blocks.clear();
+    for (const row of rows) {
+      this.blocks.set(row.label, {
+        label: row.label,
+        description: row.description,
+        content: row.content,
+        protected: row.protected === 1,
+        readonly: row.readonly === 1,
+        limit: row.limit ?? undefined,
+        updated_at: row.updated_at,
+      });
+    }
+  }
+
   async set(
     label: string,
     description: string,
     content: string,
+    opts?: { protected?: boolean; readonly?: boolean; limit?: number },
   ): Promise<void> {
-    if (this.blocks.has(label)) {
-      // Update existing
+    const existing = this.blocks.get(label);
+
+    if (existing) {
       await this.db
         .update(memoryTable)
         .set({ description, content })
         .where(eq(memoryTable.label, label));
     } else {
-      // Insert new
-      await this.db.insert(memoryTable).values({ label, description, content });
+      await this.db.insert(memoryTable).values({
+        label,
+        description,
+        content,
+        protected: opts?.protected ? 1 : 0,
+        readonly: opts?.readonly ? 1 : 0,
+        limit: opts?.limit ?? null,
+      });
     }
 
     this.blocks.set(label, {
       label,
       description,
       content,
+      protected: opts?.protected ?? existing?.protected,
+      readonly: opts?.readonly ?? existing?.readonly,
+      limit: opts?.limit ?? existing?.limit,
       updated_at: Date.now(),
     });
   }
@@ -60,16 +91,46 @@ export class MemoryRepository {
   }
 
   async delete(label: string): Promise<boolean> {
-    if (!this.blocks.has(label)) {
-      return false;
-    }
+    const block = this.blocks.get(label);
+    if (!block) return false;
 
     await this.db.delete(memoryTable).where(eq(memoryTable.label, label));
     this.blocks.delete(label);
     return true;
   }
 
-  async replaceMemory(
+  async toolCreateMemory(
+    label: string,
+    description: string,
+    content: string,
+    limit?: number,
+  ): Promise<string> {
+    if (this.blocks.has(label))
+      throw new Error(`Memory block with label "${label}" already exists.`);
+
+    const blockCount = this.getCount();
+    if (blockCount >= 20)
+      throw new Error(
+        `Memory block limit reached (${blockCount}/20). Delete an existing block before creating a new one.`,
+      );
+
+    await this.set(label, description, content, { limit });
+
+    return `Memory block "${label}" created (${blockCount + 1}/20).`;
+  }
+
+  async toolDeleteMemory(label: string): Promise<string> {
+    const block = this.blocks.get(label);
+    if (block?.protected)
+      throw new Error(
+        `Memory block "${label}" is protected and cannot be deleted.`,
+      );
+    const deleted = await this.delete(label);
+    if (!deleted) throw new Error(`Memory block "${label}" does not exist.`);
+    return `Memory block "${label}" deleted.`;
+  }
+
+  async toolReplaceMemory(
     label: string,
     oldContent: string,
     newContent: string,
@@ -77,27 +138,23 @@ export class MemoryRepository {
     const block = this.blocks.get(label);
     if (!block)
       throw new Error(`Memory block with label "${label}" does not exist.`);
+    if (block.readonly)
+      throw new Error(`Memory block "${label}" is read-only.`);
 
     if (!block.content.includes(oldContent))
-      throw new Error(`The provided oldContent was not found in memory block with label "${label}".
-      Please ensure that oldContent matches exactly what is in the memory block before attempting to update it.`);
+      throw new Error(`The provided old_content was not found in memory block with label "${label}".
+      Please ensure that old_content matches exactly what is in the memory block before attempting to update it.`);
 
     const updatedContent = block.content.replace(oldContent, newContent);
+    this.enforceLimit(block, updatedContent);
 
-    await this.db
-      .update(memoryTable)
-      .set({ content: updatedContent })
-      .where(eq(memoryTable.label, label));
-
-    block.content = updatedContent;
-    block.updated_at = Date.now();
-    this.blocks.set(label, block);
+    await this.setContent(label, updatedContent);
     return `The memory block with label ${label} has been edited.
     Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc).
     Edit the memory block again if necessary.`;
   }
 
-  async insertMemory(
+  async toolInsertMemory(
     label: string,
     content: string,
     position: "beginning" | "end",
@@ -105,20 +162,16 @@ export class MemoryRepository {
     const block = this.blocks.get(label);
     if (!block)
       throw new Error(`Memory block with label "${label}" does not exist.`);
+    if (block.readonly)
+      throw new Error(`Memory block "${label}" is read-only.`);
 
     const updatedContent =
       position === "beginning"
         ? content + "\n" + block.content
         : block.content + "\n" + content;
+    this.enforceLimit(block, updatedContent);
 
-    await this.db
-      .update(memoryTable)
-      .set({ content: updatedContent })
-      .where(eq(memoryTable.label, label));
-
-    block.content = updatedContent;
-    block.updated_at = Date.now();
-    this.blocks.set(label, block);
+    await this.setContent(label, updatedContent);
     return `Content inserted at the ${position} of memory block "${label}".`;
   }
 
@@ -129,7 +182,11 @@ export class MemoryRepository {
 
     let xml = "<memory>\n";
     for (const block of this.blocks.values()) {
-      xml += `  <block label="${block.label}">\n`;
+      const attrs = [`label="${block.label}"`];
+      if (block.protected) attrs.push(`protected="true"`);
+      if (block.readonly) attrs.push(`readonly="true"`);
+      if (block.limit) attrs.push(`limit="${block.limit}"`);
+      xml += `  <block ${attrs.join(" ")}>\n`;
       xml += `    <description>${block.description}</description>\n`;
       xml += `    <content>${block.content}</content>\n`;
       xml += `  </block>\n`;
@@ -138,16 +195,10 @@ export class MemoryRepository {
     return xml;
   }
 
-  async load() {
-    const rows = await this.db.select().from(memoryTable);
-    this.blocks.clear();
-    for (const row of rows) {
-      this.blocks.set(row.label, {
-        label: row.label,
-        description: row.description,
-        content: row.content,
-        updated_at: row.updated_at,
-      });
-    }
+  private enforceLimit(block: Memory, content: string): void {
+    if (block.limit && content.length > block.limit)
+      throw new Error(
+        `Content exceeds size limit for memory block "${block.label}" (${content.length}/${block.limit} chars).`,
+      );
   }
 }

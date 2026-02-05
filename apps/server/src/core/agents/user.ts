@@ -147,7 +147,11 @@ export class UserAgent {
     if (this.memory.has("persona") || this.memory.has("human")) return;
 
     for (const block of initialBlocks) {
-      await this.memory.set(block.label, block.description, block.content);
+      await this.memory.set(block.label, block.description, block.content, {
+        protected: block.protected,
+        readonly: block.readonly,
+        limit: block.limit,
+      });
     }
   }
 
@@ -167,36 +171,27 @@ export class UserAgent {
   private async runTool(tool: UserAgentTool): Promise<string> {
     switch (tool.tool_name) {
       case "memory_replace":
-        return this.memory.replaceMemory(
+        return this.memory.toolReplaceMemory(
           tool.label,
           tool.old_content,
           tool.new_content,
         );
       case "memory_insert":
-        return this.memory.insertMemory(
+        return this.memory.toolInsertMemory(
           tool.label,
           tool.content,
           tool.position,
         );
       case "memory_create": {
-        const blockCount = this.memory.getAll().length;
-        if (blockCount >= 20)
-          throw new Error(
-            `Memory block limit reached (${blockCount}/20). Delete an existing block before creating a new one.`,
-          );
-        await this.memory.set(tool.label, tool.description, tool.content);
-        return `Memory block "${tool.label}" created (${blockCount + 1}/20).`;
+        return this.memory.toolCreateMemory(
+          tool.label,
+          tool.description,
+          tool.content,
+          500,
+        );
       }
       case "memory_delete": {
-        const PROTECTED_LABELS = ["persona", "human", "conversation_summary"];
-        if (PROTECTED_LABELS.includes(tool.label))
-          throw new Error(
-            `Memory block "${tool.label}" is protected and cannot be deleted.`,
-          );
-        const deleted = await this.memory.delete(tool.label);
-        if (!deleted)
-          throw new Error(`Memory block "${tool.label}" does not exist.`);
-        return `Memory block "${tool.label}" deleted.`;
+        return this.memory.toolDeleteMemory(tool.label);
       }
       case "file_read":
         return await this.files.readFile(tool.path, "utf-8");
