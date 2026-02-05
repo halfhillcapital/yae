@@ -3,6 +3,17 @@ import type { drizzle } from "drizzle-orm/libsql";
 import { memoryTable } from "../schemas/agent-schema.ts";
 import type { Memory } from "../types.ts";
 
+function timeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export class MemoryRepository {
   private blocks: Map<string, Memory> = new Map();
 
@@ -185,11 +196,12 @@ export class MemoryRepository {
       const attrs = [`label="${block.label}"`];
       if (block.protected) attrs.push(`protected="true"`);
       if (block.readonly) attrs.push(`readonly="true"`);
-      if (block.limit) attrs.push(`limit="${block.limit}"`);
-      xml += `  <block ${attrs.join(" ")}>\n`;
-      xml += `    <description>${block.description}</description>\n`;
-      xml += `    <content>${block.content}</content>\n`;
-      xml += `  </block>\n`;
+      if (block.limit) attrs.push(`limit="${block.content.length}/${block.limit}"`);
+      if (block.updated_at) attrs.push(`updated="${timeAgo(block.updated_at)}"`);
+      xml += `<block ${attrs.join(" ")}>\n`;
+      xml += `<description>${block.description}</description>\n`;
+      xml += `<content>${block.content}</content>\n`;
+      xml += `</block>\n`;
     }
     xml += "</memory>";
     return xml;

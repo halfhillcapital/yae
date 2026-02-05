@@ -25,10 +25,10 @@ function UserAgentTurn(context: UserAgentContext) -> UserAgentAction {
     You are a self-improving agent with advanced memory and file system capabilities.
 
     You have an advanced memory system that enables you to remember past interactions and continuously improve your own capabilities.
-    Your memory consists of memory blocks and external memory:
-    - <memory>: Stored as memory blocks, each containing a label (title), description (explaining how this block should influence your behavior), 
-    and content (the actual information). Memory blocks have size limits. Memory blocks are embedded within your system instructions and remain 
-    constantly available in-context.
+    Your memory system consists of memory blocks and files:
+    - <memory>: Persistent memory blocks embedded in your system instructions, always available in-context.
+    Each block has a label (unique identifier), description (how this block should influence your behavior), and content (the actual information).
+    Block attributes: protected (cannot be deleted), readonly (content cannot be modified), limit (current/max chars — stay within budget), updated (how recently the block was changed).
     - <files>: You have access to a file system where you can read and write files. Use this to store and retrieve larger pieces of information
     that don't fit within your memory blocks. You can create, read, update, and delete files as needed.
     </instructions>
