@@ -17,7 +17,15 @@ import {
   LLM_TIMEOUT_MS,
 } from "src/constants.ts";
 
-import { getCurrentDatetime, dedent, parseFrontmatter } from "./utils";
+import {
+  getCurrentDatetime,
+  dedent,
+  isPublicUrl,
+  mapSettled,
+  parseFrontmatter,
+  truncateResult,
+  withTimeout,
+} from "./utils";
 import { fetchLinkup, searchLinkup } from "./tools/websearch";
 import personaRaw from "./prompts/persona.md" with { type: "text" };
 import humanRaw from "./prompts/human.md" with { type: "text" };
@@ -34,87 +42,6 @@ export type AgentLoopEvent =
   | { type: "TOOL_RESULT"; content: string }
   | { type: "TOOL_ERROR"; content: string }
   | { type: "ERROR"; content: string };
-
-// --- Helpers ---
-
-async function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error(`${label} timed out after ${ms}ms`)),
-          ms);
-      }),
-    ]);
-  } finally {
-    if (timer) {
-      clearTimeout(timer);
-    }
-  }
-}
-
-async function mapSettled<T, R>(
-  items: T[],
-  fn: (item: T) => Promise<R>,
-  limit: number,
-): Promise<PromiseSettledResult<R>[]> {
-  const results: PromiseSettledResult<R>[] = new Array(items.length);
-  let cursor = 0;
-
-  async function worker(): Promise<void> {
-    while (cursor < items.length) {
-      const i = cursor++;
-      try {
-        results[i] = { status: "fulfilled", value: await fn(items[i]!) };
-      } catch (reason) {
-        results[i] = { status: "rejected", reason };
-      }
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => worker()));
-  return results;
-}
-
-function isPublicUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      return false;
-    }
-    const h = parsed.hostname;
-    if (
-      h === "localhost" ||
-      h === "[::1]" ||
-      h.startsWith("127.") ||
-      h.startsWith("10.") ||
-      h.startsWith("192.168.") ||
-      h.startsWith("0.") ||
-      h === "169.254.169.254"
-    ) {
-      return false;
-    }
-    if (h.startsWith("172.")) {
-      const octet = parseInt(h.split(".")[1] ?? "", 10);
-      if (octet >= 16 && octet <= 31) return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function truncateResult(value: string, max: number): string {
-  if (value.length <= max) return value;
-  return value.slice(0, max) + "\n[truncated]";
-}
 
 // --- Agent Loop ---
 
