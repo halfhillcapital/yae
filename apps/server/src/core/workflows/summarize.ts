@@ -24,7 +24,7 @@ interface SummarizeState {
  * Chunks messages into groups of `size`, respecting user/assistant pair boundaries.
  * Never splits a user message from its following assistant reply.
  */
-function chunkMessages(messages: Message[], size: number): Message[][] {
+export function chunkMessages(messages: Message[], size: number): Message[][] {
   const chunks: Message[][] = [];
   let i = 0;
 

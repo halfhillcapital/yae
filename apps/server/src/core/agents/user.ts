@@ -210,8 +210,13 @@ export async function* runAgentLoop(
   if (!responded) {
     const content =
       "I wasn't able to complete my response within the allowed steps. Please try again or rephrase your request.";
-    await agent.messages.save(message);
-    await agent.messages.save({ role: "assistant", content });
+    // Only persist when work actually happened (tools ran). If the LLM
+    // failed on the very first call, don't pollute history with a
+    // synthetic exchange the model never saw.
+    if (allResults.length > 0) {
+      await agent.messages.save(message);
+      await agent.messages.save({ role: "assistant", content });
+    }
     yield { type: "ERROR", content };
   }
 
