@@ -391,3 +391,174 @@ test("parallel tool execution — 3 memory_create tools in one step, all created
     await agent.close();
   }
 });
+
+// ============================================================================
+// Test 10: file_write + file_read round-trip
+// ============================================================================
+
+test("file_write then file_read — writes file, reads it back via agent tools", async () => {
+  const { agent } = await freshAgent();
+  try {
+    mockUserAgentTurn
+      .mockResolvedValueOnce({
+        thinking: "Writing a file",
+        tools: [
+          {
+            tool_name: "file_write",
+            path: "/notes.txt",
+            content: "Hello from agent",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        thinking: "Now reading it back",
+        tools: [
+          {
+            tool_name: "file_read",
+            path: "/notes.txt",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        thinking: "Done",
+        message: "File round-trip complete.",
+      });
+
+    const events = await collectEvents(
+      runAgentLoop({ role: "user", content: "Write and read a file" }, agent),
+    );
+
+    // Write yields TOOL_RESULT confirming write
+    const results = eventsOfType(events, "TOOL_RESULT");
+    expect(results).toHaveLength(2);
+    expect(results[0]!.content).toContain("/notes.txt");
+    expect(results[0]!.content).toContain("written");
+
+    // Read yields TOOL_RESULT with the file content
+    expect(results[1]!.content).toContain("Hello from agent");
+
+    // Verify via direct FS access
+    const content = await agent.files.readFile("/notes.txt", "utf-8");
+    expect(content).toBe("Hello from agent");
+  } finally {
+    await agent.close();
+  }
+});
+
+// ============================================================================
+// Test 11: file_list
+// ============================================================================
+
+test("file_list — lists files in the agent filesystem", async () => {
+  const { agent } = await freshAgent();
+  try {
+    // Seed some files directly
+    await agent.files.writeFile("/a.txt", "aaa", "utf-8");
+    await agent.files.mkdir("/sub");
+    await agent.files.writeFile("/sub/b.txt", "bbb", "utf-8");
+
+    mockUserAgentTurn
+      .mockResolvedValueOnce({
+        thinking: "Listing files",
+        tools: [
+          {
+            tool_name: "file_list",
+            path: "/",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        thinking: "Done",
+        message: "Listed.",
+      });
+
+    const events = await collectEvents(
+      runAgentLoop({ role: "user", content: "List files" }, agent),
+    );
+
+    const results = eventsOfType(events, "TOOL_RESULT");
+    expect(results).toHaveLength(1);
+    expect(results[0]!.content).toContain("a.txt");
+    expect(results[0]!.content).toContain("sub");
+  } finally {
+    await agent.close();
+  }
+});
+
+// ============================================================================
+// Test 12: file_delete
+// ============================================================================
+
+test("file_delete — deletes a file from the agent filesystem", async () => {
+  const { agent } = await freshAgent();
+  try {
+    // Seed a file
+    await agent.files.writeFile("/temp.txt", "temporary", "utf-8");
+
+    mockUserAgentTurn
+      .mockResolvedValueOnce({
+        thinking: "Deleting file",
+        tools: [
+          {
+            tool_name: "file_delete",
+            path: "/temp.txt",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        thinking: "Done",
+        message: "Deleted.",
+      });
+
+    const events = await collectEvents(
+      runAgentLoop({ role: "user", content: "Delete the file" }, agent),
+    );
+
+    const results = eventsOfType(events, "TOOL_RESULT");
+    expect(results).toHaveLength(1);
+    expect(results[0]!.content).toContain("/temp.txt");
+    expect(results[0]!.content).toContain("deleted");
+
+    // File should be gone — reading it should throw
+    expect(agent.files.readFile("/temp.txt", "utf-8")).rejects.toThrow();
+  } finally {
+    await agent.close();
+  }
+});
+
+// ============================================================================
+// Test 13: file_read on missing file yields TOOL_ERROR
+// ============================================================================
+
+test("file_read on missing file — yields TOOL_ERROR, loop continues", async () => {
+  const { agent } = await freshAgent();
+  try {
+    mockUserAgentTurn
+      .mockResolvedValueOnce({
+        thinking: "Reading a file that doesn't exist",
+        tools: [
+          {
+            tool_name: "file_read",
+            path: "/nonexistent.txt",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        thinking: "That failed, let me respond",
+        message: "File not found.",
+      });
+
+    const events = await collectEvents(
+      runAgentLoop({ role: "user", content: "Read missing file" }, agent),
+    );
+
+    const toolErrors = eventsOfType(events, "TOOL_ERROR");
+    expect(toolErrors).toHaveLength(1);
+    expect(toolErrors[0]!.content).toContain("file_read");
+
+    // Loop continued and produced a response
+    expect(eventsOfType(events, "MESSAGE")).toHaveLength(1);
+  } finally {
+    await agent.close();
+  }
+});
