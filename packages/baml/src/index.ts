@@ -1,6 +1,5 @@
 // @yae/baml — BAML integration for Y.A.E.
 
-import { b } from "../baml_client";
 import type {
   UserAgentAction,
   UserAgentContext,
@@ -9,6 +8,11 @@ import type {
 } from "../baml_client/types";
 import type { partial_types } from "../baml_client/partial_types";
 import type { BamlStream } from "@boundaryml/baml";
+
+async function client() {
+  const { b } = await import("../baml_client");
+  return b;
+}
 
 export type {
   Message,
@@ -41,18 +45,20 @@ export async function userAgentTurn(
   context: UserAgentContext,
   options?: BamlCallOptions,
 ): Promise<UserAgentAction> {
+  const b = await client();
   return b.UserAgentTurn(context, options);
 }
 
 // Usage example:
-// const stream = userAgentTurnStream({ query, history, memory, tool_results });
+// const stream = await userAgentTurnStream({ query, history, memory, tool_results });
 // for await (const partial of stream) { /* partial.thinking, partial.tools */ }
 // const final = await stream.getFinalResponse();
 
-export function userAgentTurnStream(
+export async function userAgentTurnStream(
   context: UserAgentContext,
   options?: BamlCallOptions,
-): BamlStream<partial_types.UserAgentAction, UserAgentAction> {
+): Promise<BamlStream<partial_types.UserAgentAction, UserAgentAction>> {
+  const b = await client();
   return b.stream.UserAgentTurn(context, options);
 }
 
@@ -62,6 +68,7 @@ export async function summarizeChunk(
   messages: Message[],
   options?: BamlCallOptions,
 ): Promise<ConversationSummary> {
+  const b = await client();
   return b.SummarizeChunk(messages, options);
 }
 
@@ -70,5 +77,6 @@ export async function mergeSummaries(
   existingSummary?: string | null,
   options?: BamlCallOptions,
 ): Promise<string> {
+  const b = await client();
   return b.MergeSummaries(summaries, existingSummary, options);
 }
