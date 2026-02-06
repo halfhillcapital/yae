@@ -34,7 +34,6 @@
         "zod": "^4.3.6",
       },
       "devDependencies": {
-        "@standard-schema/spec": "^1.1.0",
         "drizzle-kit": "^0.31.8",
       },
     },
@@ -192,8 +191,6 @@
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.48", "", {}, "sha512-kKJTNuK3AQOrgjjotVxMrCn1sUJwM76wMszfq1kdU4uYVJjvEWuFQ6HgvLt4Xz3fSmZlTOxJ/Ie13KnIcWQXFA=="],
 
-    "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
-
     "@tokenizer/inflate": ["@tokenizer/inflate@0.4.1", "", { "dependencies": { "debug": "^4.4.3", "token-types": "^6.1.1" } }, "sha512-2mAv+8pkG6GIZiF1kNg1jAjh27IDxEPKwdGul3snfztFerfPGI1LjDezZp3i7BElXompqEtPmoPx6c2wgtWsOA=="],
 
     "@tokenizer/token": ["@tokenizer/token@0.3.0", "", {}, "sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A=="],
@@ -252,7 +249,7 @@
 
     "acorn-jsx": ["acorn-jsx@5.3.2", "", { "peerDependencies": { "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ=="],
 
-    "agentfs-sdk": ["agentfs-sdk@0.5.3", "", { "dependencies": { "@tursodatabase/database": "^0.4.0-pre.18", "@tursodatabase/database-common": "^0.4.0-pre.18", "buffer": "^6.0.3" }, "peerDependencies": { "just-bash": ">=2.0.0" }, "optionalPeers": ["just-bash"] }, "sha512-fjDy06THOGpbZJ7vD6BJbVB3HafoKnpqvZrsTTKquP4z9WRxPfP9MlsT6UDGicjm9mhSZpgkQdnFuTz1unakZg=="],
+    "agentfs-sdk": ["agentfs-sdk@0.6.0", "", { "dependencies": { "@tursodatabase/database": "^0.4.0-pre.18", "@tursodatabase/database-common": "^0.4.0-pre.18", "buffer": "^6.0.3" }, "peerDependencies": { "just-bash": ">=2.0.0" }, "optionalPeers": ["just-bash"] }, "sha512-CyrrZyfJk3H+Q6feMvK/S7hlrIKykGzJ+wCq/URgt72A3tBsYHLkDF7ZGOMMu1BasT9HFrWXunyN0PXD646/ig=="],
 
     "ajv": ["ajv@6.12.6", "", { "dependencies": { "fast-deep-equal": "^3.1.1", "fast-json-stable-stringify": "^2.0.0", "json-schema-traverse": "^0.4.1", "uri-js": "^4.2.2" } }, "sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g=="],
 
