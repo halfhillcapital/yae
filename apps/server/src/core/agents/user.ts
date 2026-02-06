@@ -7,7 +7,15 @@ import type {
   WorkflowResult,
 } from "@yae/core/workflows/types.ts";
 import { summarizeWorkflow } from "@yae/core/workflows/summarize.ts";
-import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";
+import {
+  MAX_CONVERSATION_HISTORY,
+  MAX_AGENT_STEPS,
+  MAX_TOOL_RESULT_CHARS,
+  MAX_TOOL_CONCURRENCY,
+  DEFAULT_MEMORY_BLOCK_LIMIT,
+  TOOL_TIMEOUT_MS,
+  LLM_TIMEOUT_MS,
+} from "src/constants.ts";
 
 import { getCurrentDatetime, dedent, parseFrontmatter } from "./utils";
 import { fetchLinkup, searchLinkup } from "./tools/websearch";
@@ -17,31 +25,139 @@ import summaryRaw from "./prompts/conversation.md" with { type: "text" };
 
 const initialBlocks = [personaRaw, humanRaw, summaryRaw].map(parseFrontmatter);
 
+// --- Types ---
+
+export type AgentLoopEvent =
+  | { type: "THINKING"; content: string }
+  | { type: "MESSAGE"; content: string }
+  | { type: "TOOL_CALL"; content: string }
+  | { type: "TOOL_RESULT"; content: string }
+  | { type: "TOOL_ERROR"; content: string }
+  | { type: "ERROR"; content: string };
+
+// --- Helpers ---
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+async function mapSettled<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  limit: number,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let cursor = 0;
+
+  async function worker(): Promise<void> {
+    while (cursor < items.length) {
+      const i = cursor++;
+      try {
+        results[i] = { status: "fulfilled", value: await fn(items[i]!) };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+}
+
+function isPublicUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return false;
+    }
+    const h = parsed.hostname;
+    if (
+      h === "localhost" ||
+      h === "[::1]" ||
+      h.startsWith("127.") ||
+      h.startsWith("10.") ||
+      h.startsWith("192.168.") ||
+      h.startsWith("0.") ||
+      h === "169.254.169.254"
+    ) {
+      return false;
+    }
+    if (h.startsWith("172.")) {
+      const octet = parseInt(h.split(".")[1] ?? "", 10);
+      if (octet >= 16 && octet <= 31) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function truncateResult(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return value.slice(0, max) + "\n[truncated]";
+}
+
+// --- Agent Loop ---
+
 export async function* runAgentLoop(
   message: Message,
   agent: UserAgent,
   maxSteps: number = 10,
-) {
+): AsyncGenerator<AgentLoopEvent> {
+  maxSteps = Math.min(maxSteps, MAX_AGENT_STEPS);
+
   // Pre-flight: kick off summarization in parallel if threshold exceeded
-  let summarizePromise: Promise<WorkflowResult<unknown>> | null = null;
+  let summarizePromise: Promise<WorkflowResult<unknown> | null> | null = null;
   if (agent.messages.getMessageHistory().length >= MAX_CONVERSATION_HISTORY) {
     summarizePromise = agent.runWorkflow(summarizeWorkflow).catch((err) => {
       console.error("[summarize] workflow failed:", err);
-      return null as unknown as WorkflowResult<unknown>;
+      return null;
     });
   }
 
-  const context = await agent.buildContext();
+  // Agent is already initialized via factory
   const allResults: string[] = [];
   let responded = false;
 
   for (let step = 0; step < maxSteps; step++) {
-    const agentStep = await userAgentTurn({
-      query: message.content,
-      history: agent.messages.getMessageHistory(),
-      memory: context,
-      tool_results: allResults.join("\n"),
-    });
+    const context = await agent.buildContext();
+
+    let agentStep;
+    try {
+      agentStep = await withTimeout(
+        userAgentTurn({
+          query: message.content,
+          history: agent.messages.getMessageHistory(),
+          memory: context,
+          tool_results: allResults.join("\n"),
+        }),
+        LLM_TIMEOUT_MS,
+        "LLM call",
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      yield { type: "ERROR", content: `Agent turn failed: ${msg}` };
+      break;
+    }
 
     yield { type: "THINKING", content: agentStep.thinking };
 
@@ -56,16 +172,30 @@ export async function* runAgentLoop(
     }
 
     // UserAgentToolStep → execute tools, loop
+    if (agentStep.tools.length === 0) {
+      yield {
+        type: "TOOL_ERROR",
+        content: "Agent returned empty tool list — skipping step.",
+      };
+      continue;
+    }
+
     for (const tool of agentStep.tools) {
       yield { type: "TOOL_CALL", content: tool.tool_name };
     }
-    const settled = await Promise.allSettled(
-      agentStep.tools.map((tool) => agent.executeTool(tool)),
+
+    const settled = await mapSettled(
+      agentStep.tools,
+      (tool) =>
+        withTimeout(agent.executeTool(tool), TOOL_TIMEOUT_MS, tool.tool_name),
+      MAX_TOOL_CONCURRENCY,
     );
+
     for (const [i, result] of settled.entries()) {
       const toolName = agentStep.tools[i]!.tool_name;
       if (result.status === "fulfilled") {
-        const str = `<tool_result step="${step + 1}" tool="${toolName}">${result.value}</tool_result>`;
+        const value = truncateResult(result.value, MAX_TOOL_RESULT_CHARS);
+        const str = `<tool_result step="${step + 1}" tool="${toolName}">${value}</tool_result>`;
         allResults.push(str);
         yield { type: "TOOL_RESULT", content: str };
       } else {
@@ -91,12 +221,18 @@ export async function* runAgentLoop(
   }
 }
 
+// --- UserAgent ---
+
 export class UserAgent {
-  constructor(
+  private constructor(
     public readonly id: string,
     private readonly ctx: AgentContext,
-  ) {
-    this.initState();
+  ) {}
+
+  static async create(id: string, ctx: AgentContext): Promise<UserAgent> {
+    const agent = new UserAgent(id, ctx);
+    await agent.initState();
+    return agent;
   }
 
   get memory() {
@@ -182,17 +318,15 @@ export class UserAgent {
           tool.content,
           tool.position,
         );
-      case "memory_create": {
+      case "memory_create":
         return this.memory.toolCreateMemory(
           tool.label,
           tool.description,
           tool.content,
-          500,
+          DEFAULT_MEMORY_BLOCK_LIMIT,
         );
-      }
-      case "memory_delete": {
+      case "memory_delete":
         return this.memory.toolDeleteMemory(tool.label);
-      }
       case "file_read":
         return await this.files.readFile(tool.path, "utf-8");
       case "file_write":
@@ -204,13 +338,21 @@ export class UserAgent {
         await this.files.unlink(tool.path);
         return `File "${tool.path}" deleted.`;
       case "web_search": {
-        const result = await searchLinkup(tool.query, tool.depth);
+        const depth = tool.depth === "deep" ? "deep" : "standard";
+        const result = await searchLinkup(tool.query, depth);
         return result.answer;
       }
       case "web_fetch": {
+        if (!isPublicUrl(tool.url)) {
+          throw new Error("Blocked URL: only public http(s) URLs are allowed");
+        }
         const result = await fetchLinkup(tool.url, tool.render);
         return result.markdown;
       }
+      default:
+        throw new Error(
+          `Unknown tool: ${(tool as { tool_name: string }).tool_name}`,
+        );
     }
   }
 

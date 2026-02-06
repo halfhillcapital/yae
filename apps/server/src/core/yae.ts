@@ -113,7 +113,7 @@ export class Yae {
 
     const agentId = `agent_${userId}`;
     const ctx = await AgentContext.create(agentId, AGENTS_DB_DIR);
-    const agent = new UserAgent(agentId, ctx);
+    const agent = await UserAgent.create(agentId, ctx);
 
     this.userAgents.set(userId, agent);
     return agent;
