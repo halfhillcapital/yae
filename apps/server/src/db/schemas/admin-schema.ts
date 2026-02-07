@@ -14,7 +14,9 @@ export const usersTable = table(
     name: text().notNull(),
     token: text().notNull().unique(),
     role: text().notNull().$type<UserRole>().default("user"),
-    created_at: int().notNull().default(Date.now()),
+    created_at: int()
+      .notNull()
+      .$defaultFn(() => Date.now()),
   },
   (t) => [index("users_token_idx").on(t.token)],
 );
@@ -29,7 +31,9 @@ export const webhooksTable = table(
     target_user_id: text(),
     target_workflow: text(),
     active: int().notNull().default(1),
-    created_at: int().notNull().default(Date.now()),
+    created_at: int()
+      .notNull()
+      .$defaultFn(() => Date.now()),
   },
   (t) => [index("webhooks_slug_idx").on(t.slug)],
 );

@@ -16,7 +16,7 @@ export const memoryTable = table("memory", {
   limit: int(),
   updated_at: int()
     .notNull()
-    .default(Date.now())
+    .$defaultFn(() => Date.now())
     .$onUpdate(() => Date.now()),
 });
 
@@ -26,7 +26,9 @@ export const messagesTable = table(
     id: int().primaryKey({ autoIncrement: true }),
     role: text().notNull().$type<MessageRole>(),
     content: text().notNull(),
-    created_at: int().notNull().default(Date.now()),
+    created_at: int()
+      .notNull()
+      .$defaultFn(() => Date.now()),
   },
   (t) => [index("messages_created_idx").on(t.created_at)],
 );
