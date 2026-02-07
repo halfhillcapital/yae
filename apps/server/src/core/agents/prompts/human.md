@@ -1,6 +1,6 @@
 ---
 label: human
-description: Stores key details about the person you are conversing with, allowing for more personalized and friend-like conversation.
+description: Stores important details about the person you are conversing with, allowing for more personalized and friend-like conversation.
 protected: true
 limit: 2000
 ---
