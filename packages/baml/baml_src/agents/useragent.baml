@@ -51,9 +51,11 @@ function UserAgentTurn(context: UserAgentContext) -> UserAgentAction {
     that the action could not be completed and why.
     </tool_use>
 
-    <previous_tool_results>
+    {% if context.tool_results %}
+    <previous_tool_calls>
     {{ context.tool_results }}
-    </previous_tool_results>
+    </previous_tool_calls>
+    {% endif %}
     
     Always incorporate the results of previous tool calls and relevant memory blocks into your response.
 
