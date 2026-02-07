@@ -97,7 +97,8 @@ export async function withTimeout<T>(
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () => reject(new Error(`${label} timed out after ${ms}ms`)),
-          ms);
+          ms,
+        );
       }),
     ]);
   } finally {
@@ -127,7 +128,8 @@ export async function mapSettled<T, R>(
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
   return results;
 }
 

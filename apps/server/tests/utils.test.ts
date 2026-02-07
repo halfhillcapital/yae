@@ -114,11 +114,7 @@ describe("withTimeout", () => {
   test("clears timer on success (no leaked timers)", async () => {
     // If the timer leaked, the test runner would warn about open handles.
     // We just verify it completes cleanly with a generous timeout.
-    const result = await withTimeout(
-      Promise.resolve(42),
-      60_000,
-      "long-timer",
-    );
+    const result = await withTimeout(Promise.resolve(42), 60_000, "long-timer");
     expect(result).toBe(42);
   });
 });

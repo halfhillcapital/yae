@@ -25,7 +25,10 @@ function tempAdminDbPath(): string {
   return `${tmpdir()}/yae-sum-test-${crypto.randomUUID()}.db`;
 }
 
-function makeMessages(count: number, startRole: "user" | "assistant" = "user"): Message[] {
+function makeMessages(
+  count: number,
+  startRole: "user" | "assistant" = "user",
+): Message[] {
   const roles: Array<"user" | "assistant"> =
     startRole === "user" ? ["user", "assistant"] : ["assistant", "user"];
   return Array.from({ length: count }, (_, i) => ({
@@ -47,7 +50,10 @@ beforeEach(() => {
   }));
 
   mockMergeSummaries.mockImplementation(
-    async (summaries: Array<{ narrative: string }>, existing?: string | null) => {
+    async (
+      summaries: Array<{ narrative: string }>,
+      existing?: string | null,
+    ) => {
       const parts = summaries.map((s) => s.narrative);
       if (existing) parts.unshift(existing);
       return parts.join(" | ");
@@ -202,11 +208,7 @@ test("summarize workflow: multiple chunks for 90 messages", async () => {
   const ctx = await AgentContext.create("test-agent", ":memory:");
   const admin = await AdminContext.create(tempAdminDbPath());
   try {
-    await ctx.memory.set(
-      "conversation_summary",
-      "Conversation Summary",
-      "",
-    );
+    await ctx.memory.set("conversation_summary", "Conversation Summary", "");
 
     for (let i = 0; i < 90; i++) {
       await ctx.messages.save({

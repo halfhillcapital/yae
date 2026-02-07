@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { drizzle } from "drizzle-orm/libsql";
+import type { drizzle } from "drizzle-orm/bun-sqlite";
 import { usersTable } from "../schemas/admin-schema.ts";
 import type { User, UserRole } from "../types.ts";
 
@@ -51,6 +51,6 @@ export class UserRepository {
       .delete(usersTable)
       .where(eq(usersTable.id, id));
 
-    return result.rowsAffected > 0;
+    return result.changes > 0;
   }
 }

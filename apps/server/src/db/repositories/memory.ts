@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { drizzle } from "drizzle-orm/libsql";
+import type { drizzle } from "drizzle-orm/bun-sqlite";
 import { memoryTable } from "../schemas/agent-schema.ts";
 import type { Memory } from "../types.ts";
 
@@ -196,8 +196,10 @@ export class MemoryRepository {
       const attrs = [`label="${block.label}"`];
       if (block.protected) attrs.push(`protected="true"`);
       if (block.readonly) attrs.push(`readonly="true"`);
-      if (block.limit) attrs.push(`limit="${block.content.length}/${block.limit}"`);
-      if (block.updated_at) attrs.push(`updated="${timeAgo(block.updated_at)}"`);
+      if (block.limit)
+        attrs.push(`limit="${block.content.length}/${block.limit}"`);
+      if (block.updated_at)
+        attrs.push(`updated="${timeAgo(block.updated_at)}"`);
       xml += `<block ${attrs.join(" ")}>\n`;
       xml += `<description>${block.description}</description>\n`;
       xml += `<content>${block.content}</content>\n`;

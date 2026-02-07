@@ -24,7 +24,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
-        "@libsql/client": "latest",
         "@yae/baml": "workspace:*",
         "@yae/graph": "workspace:*",
         "agentfs-sdk": "latest",

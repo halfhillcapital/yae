@@ -1,5 +1,5 @@
 import { asc, count, desc } from "drizzle-orm";
-import type { drizzle } from "drizzle-orm/libsql";
+import type { drizzle } from "drizzle-orm/bun-sqlite";
 import { messagesTable } from "../schemas/agent-schema.ts";
 import type { Message } from "../types.ts";
 import { MAX_CONVERSATION_HISTORY } from "src/constants.ts";

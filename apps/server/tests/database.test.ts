@@ -1,6 +1,6 @@
 import { tmpdir } from "node:os";
 import { describe, test, expect } from "bun:test";
-import { createClient } from "@libsql/client";
+import { Database } from "bun:sqlite";
 import { AgentContext, AdminContext } from "@yae/db/context.ts";
 
 /**
@@ -451,18 +451,18 @@ describe("AdminContext", () => {
 
 describe("Error propagation", () => {
   /**
-   * Opens a raw libsql client to the same DB file so we can sabotage it
+   * Opens a raw SQLite connection to the same DB file so we can sabotage it
    * (drop tables) and verify the repositories throw on the next operation.
    */
   function rawClient(dir: string, agentId: string) {
-    return createClient({ url: `file:${dir}/${agentId}.db` });
+    return new Database(`${dir}/${agentId}.db`);
   }
 
   test("memory.set() throws when table is dropped", async () => {
     const dir = tempDbDir();
     const ctx = await AgentContext.create("agent", dir);
 
-    await rawClient(dir, "agent").execute("DROP TABLE memory");
+    await rawClient(dir, "agent").run("DROP TABLE memory");
 
     expect(ctx.memory.set("key", "desc", "value")).rejects.toThrow();
   });
@@ -474,7 +474,7 @@ describe("Error propagation", () => {
     // Put something in cache so delete() doesn't short-circuit
     await ctx.memory.set("key", "desc", "value");
 
-    await rawClient(dir, "agent").execute("DROP TABLE memory");
+    await rawClient(dir, "agent").run("DROP TABLE memory");
 
     expect(ctx.memory.delete("key")).rejects.toThrow();
   });
@@ -483,7 +483,7 @@ describe("Error propagation", () => {
     const dir = tempDbDir();
     const ctx = await AgentContext.create("agent", dir);
 
-    await rawClient(dir, "agent").execute("DROP TABLE memory");
+    await rawClient(dir, "agent").run("DROP TABLE memory");
 
     expect(ctx.memory.load()).rejects.toThrow();
   });
@@ -492,7 +492,7 @@ describe("Error propagation", () => {
     const dir = tempDbDir();
     const ctx = await AgentContext.create("agent", dir);
 
-    await rawClient(dir, "agent").execute("DROP TABLE messages");
+    await rawClient(dir, "agent").run("DROP TABLE messages");
 
     expect(
       ctx.messages.save({ role: "user", content: "hello" }),
@@ -503,7 +503,7 @@ describe("Error propagation", () => {
     const dir = tempDbDir();
     const ctx = await AgentContext.create("agent", dir);
 
-    await rawClient(dir, "agent").execute("DROP TABLE messages");
+    await rawClient(dir, "agent").run("DROP TABLE messages");
 
     expect(ctx.messages.load()).rejects.toThrow();
   });
@@ -512,7 +512,7 @@ describe("Error propagation", () => {
     const dir = tempDbDir();
     const ctx = await AgentContext.create("agent", dir);
 
-    await rawClient(dir, "agent").execute("DROP TABLE memory");
+    await rawClient(dir, "agent").run("DROP TABLE memory");
 
     // set() should throw
     try {
@@ -533,7 +533,7 @@ describe("Error propagation", () => {
 
     // Sabotage: drop a table from the same DB file, then close the raw client
     const raw = rawClient(dir, "agent");
-    await raw.execute("DROP TABLE memory");
+    await raw.run("DROP TABLE memory");
     raw.close();
 
     // Reopening the SAME agent DB — migrate() skips (already applied),

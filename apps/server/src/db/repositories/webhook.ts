@@ -1,5 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
-import type { drizzle } from "drizzle-orm/libsql";
+import type { drizzle } from "drizzle-orm/bun-sqlite";
 import { webhooksTable, webhookEventsTable } from "../schemas/admin-schema.ts";
 import type { Webhook, WebhookEvent, WebhookEventStatus } from "../index.ts";
 
@@ -62,7 +62,7 @@ export class WebhookRepository {
       .set(updates)
       .where(eq(webhooksTable.id, id));
 
-    return result.rowsAffected > 0;
+    return result.changes > 0;
   }
 
   async delete(id: string): Promise<boolean> {
@@ -70,7 +70,7 @@ export class WebhookRepository {
       .delete(webhooksTable)
       .where(eq(webhooksTable.id, id));
 
-    return result.rowsAffected > 0;
+    return result.changes > 0;
   }
 
   // ─────────────────────────────────────────────────────────────

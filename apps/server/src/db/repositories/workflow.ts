@@ -1,5 +1,5 @@
 import { eq, desc } from "drizzle-orm";
-import type { drizzle } from "drizzle-orm/libsql";
+import type { drizzle } from "drizzle-orm/bun-sqlite";
 import { workflowRunsTable } from "../schemas/admin-schema.ts";
 import type { WorkflowRun, WorkflowStatus } from "../index.ts";
 
@@ -95,7 +95,7 @@ export class WorkflowRepository {
       })
       .where(eq(workflowRunsTable.status, "running"));
 
-    return result.rowsAffected;
+    return result.changes;
   }
 
   private toWorkflowRun<T>(row: {

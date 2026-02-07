@@ -3,9 +3,9 @@ import { mkdir } from "node:fs/promises";
 import { sql } from "drizzle-orm";
 
 import { AgentFS } from "agentfs-sdk";
-import { drizzle } from "drizzle-orm/libsql";
-import { createClient } from "@libsql/client";
-import { migrate } from "drizzle-orm/libsql/migrator";
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 
 import { AGENT_MIGRATIONS_DIR, ADMIN_MIGRATIONS_DIR } from "../constants.ts";
 import * as schema from "./schemas/agent-schema.ts";
@@ -52,7 +52,7 @@ export class AgentContext {
   private constructor(
     public readonly agentId: string,
     db: ReturnType<typeof drizzle>,
-    private readonly _db: ReturnType<typeof createClient>,
+    private readonly _db: Database,
     private readonly _fs: AgentFS,
   ) {
     this.memory = new MemoryRepository(db);
@@ -77,9 +77,7 @@ export class AgentContext {
     }
 
     const fs = await AgentFS.open({ path: fsFile });
-    const client = createClient({
-      url: inMemory ? dbPath : `file:${dbFile}`,
-    });
+    const client = new Database(dbFile);
     const db = drizzle(client, { schema });
     await migrate(db, {
       migrationsFolder: AGENT_MIGRATIONS_DIR,
@@ -102,7 +100,7 @@ export class AdminContext {
 
   private constructor(
     db: ReturnType<typeof drizzle>,
-    private readonly _db: ReturnType<typeof createClient>,
+    private readonly _db: Database,
   ) {
     this.users = new UserRepository(db);
     this.webhooks = new WebhookRepository(db);
@@ -118,7 +116,7 @@ export class AdminContext {
     const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
     await ensureDir(dir);
 
-    const client = createClient({ url: `file:${dbPath}` });
+    const client = new Database(dbPath);
     const db = drizzle(client, { schema: adminSchema });
     await migrate(db, {
       migrationsFolder: ADMIN_MIGRATIONS_DIR,

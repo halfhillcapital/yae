@@ -228,9 +228,7 @@ test("max steps exhaustion — fallback ERROR after maxSteps tool rounds", async
     expect(eventsOfType(events, "THINKING")).toHaveLength(3);
     const errors = eventsOfType(events, "ERROR");
     expect(errors).toHaveLength(1);
-    expect(errors[0]!.content).toContain(
-      "wasn't able to complete my response",
-    );
+    expect(errors[0]!.content).toContain("wasn't able to complete my response");
     // No MESSAGE event
     expect(eventsOfType(events, "MESSAGE")).toHaveLength(0);
   } finally {
