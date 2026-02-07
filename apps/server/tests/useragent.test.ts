@@ -58,7 +58,7 @@ test("single-turn response — yields THINKING then MESSAGE, saves messages", as
     });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Hi" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Hi" }),
     );
 
     expect(eventsOfType(events, "THINKING")).toHaveLength(1);
@@ -105,7 +105,7 @@ test("tool step then response — memory_create tool executed, events in order",
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Create a block" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Create a block" }),
     );
 
     const types = events.map((e) => e.type);
@@ -151,7 +151,7 @@ test("multiple tool steps — 3 tool rounds before final message", async () => {
     });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Do three things" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Do three things" }),
     );
 
     expect(eventsOfType(events, "THINKING")).toHaveLength(4);
@@ -186,7 +186,7 @@ test("empty tool list — yields TOOL_ERROR, loop continues", async () => {
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Do something" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Do something" }),
     );
 
     const toolErrors = eventsOfType(events, "TOOL_ERROR");
@@ -221,7 +221,7 @@ test("max steps exhaustion — fallback ERROR after maxSteps tool rounds", async
     }));
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Loop forever" }, agent, 3),
+      runAgentLoop(agent, { role: "user", content: "Loop forever" }, undefined, 3),
     );
 
     // 3 THINKING events (one per step) + final ERROR
@@ -248,7 +248,7 @@ test("LLM failure — yields ERROR events, no messages saved", async () => {
     mockUserAgentTurn.mockRejectedValueOnce(new Error("LLM API error"));
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Crash" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Crash" }),
     );
 
     const errors = eventsOfType(events, "ERROR");
@@ -290,7 +290,7 @@ test("tool execution failure — memory_replace on missing block yields TOOL_ERR
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Replace memory" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Replace memory" }),
     );
 
     const toolErrors = eventsOfType(events, "TOOL_ERROR");
@@ -328,7 +328,7 @@ test("maxSteps clamped to MAX_AGENT_STEPS — passing 999 caps at 20", async () 
     });
 
     await collectEvents(
-      runAgentLoop({ role: "user", content: "Loop many times" }, agent, 999),
+      runAgentLoop(agent, { role: "user", content: "Loop many times" }, undefined, 999),
     );
 
     expect(callCount).toBe(MAX_AGENT_STEPS);
@@ -374,7 +374,7 @@ test("parallel tool execution — 3 memory_create tools in one step, all created
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Create three blocks" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Create three blocks" }),
     );
 
     expect(eventsOfType(events, "TOOL_CALL")).toHaveLength(3);
@@ -423,7 +423,7 @@ test("file_write then file_read — writes file, reads it back via agent tools",
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Write and read a file" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Write and read a file" }),
     );
 
     // Write yields TOOL_RESULT confirming write
@@ -471,7 +471,7 @@ test("file_list — lists files in the agent filesystem", async () => {
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "List files" }, agent),
+      runAgentLoop(agent, { role: "user", content: "List files" }),
     );
 
     const results = eventsOfType(events, "TOOL_RESULT");
@@ -509,7 +509,7 @@ test("file_delete — deletes a file from the agent filesystem", async () => {
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Delete the file" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Delete the file" }),
     );
 
     const results = eventsOfType(events, "TOOL_RESULT");
@@ -547,7 +547,7 @@ test("file_read on missing file — yields TOOL_ERROR, loop continues", async ()
       });
 
     const events = await collectEvents(
-      runAgentLoop({ role: "user", content: "Read missing file" }, agent),
+      runAgentLoop(agent, { role: "user", content: "Read missing file" }),
     );
 
     const toolErrors = eventsOfType(events, "TOOL_ERROR");
