@@ -15,25 +15,14 @@ export const userRoutes = new Elysia({ name: "user-routes" })
         return;
       }
 
-      const lastMessage = [...body.messages]
-        .reverse()
-        .find((m) => m.role === "user");
+      const message = { role: "user" as const, content: body.message };
 
-      if (!lastMessage) {
-        set.status = 400;
-        return;
-      }
-
-      yield* runAgentLoop(lastMessage, agent);
+      yield* runAgentLoop(agent, message, body.instructions);
     },
     {
       body: t.Object({
-        messages: t.Array(
-          t.Object({
-            role: t.Union([t.Literal("user"), t.Literal("assistant")]),
-            content: t.String(),
-          }),
-        ),
+        message: t.String(),
+        instructions: t.Optional(t.String()),
       }),
     },
   );

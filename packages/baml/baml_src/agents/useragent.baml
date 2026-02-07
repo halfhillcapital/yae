@@ -3,6 +3,7 @@ class UserAgentContext {
   history Message[] @description("The conversation history between the user and the assistant.")
   memory string @description("The agent's current memory content.")
   tool_results string @description("Results from previously executed tools.")
+  instructions string @description("Platform-specific instructions for the current session.")
 }
 
 class UserAgentToolStep {
@@ -55,6 +56,12 @@ function UserAgentTurn(context: UserAgentContext) -> UserAgentAction {
     </previous_tool_results>
     
     Always incorporate the results of previous tool calls and relevant memory blocks into your response.
+
+    {% if context.instructions %}
+    <platform_instructions>
+    {{ context.instructions }}
+    </platform_instructions>
+    {% endif %}
 
     {{ PrintMessages(context.history) }}
 

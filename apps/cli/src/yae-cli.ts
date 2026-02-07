@@ -241,9 +241,7 @@ async function streamChat(
       "Content-Type": "application/json",
       Authorization: `Bearer ${userToken}`,
     },
-    body: JSON.stringify({
-      messages: [{ role: "user", content: message }],
-    }),
+    body: JSON.stringify({ message }),
   });
 
   if (!res.ok) {

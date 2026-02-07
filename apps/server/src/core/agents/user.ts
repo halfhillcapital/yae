@@ -46,8 +46,9 @@ export type AgentLoopEvent =
 // --- Agent Loop ---
 
 export async function* runAgentLoop(
-  message: Message,
   agent: UserAgent,
+  message: Message,
+  instructions?: string,
   maxSteps: number = 10,
 ): AsyncGenerator<AgentLoopEvent> {
   maxSteps = Math.min(maxSteps, MAX_AGENT_STEPS);
@@ -76,6 +77,7 @@ export async function* runAgentLoop(
           history: agent.messages.getMessageHistory(),
           memory: context,
           tool_results: allResults.join("\n"),
+          instructions: instructions ?? "",
         }),
         LLM_TIMEOUT_MS,
         "LLM call",
