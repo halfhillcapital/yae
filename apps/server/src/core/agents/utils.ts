@@ -71,7 +71,7 @@ export function parseFrontmatter(raw: string): Memory {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) throw new Error("Invalid frontmatter format");
   const meta: Record<string, string> = {};
-  for (const line of match[1]!.split("\n")) {
+  for (const line of match[1]!.split(/\r?\n/)) {
     const m = line.match(/^(\w+):\s*(.+)$/);
     if (m) meta[m[1]!] = m[2]!;
   }
