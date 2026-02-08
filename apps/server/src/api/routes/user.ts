@@ -17,12 +17,11 @@ export const userRoutes = new Elysia({ name: "user-routes" })
 
       const message = { role: "user" as const, content: body.message };
 
-      yield* runAgentLoop(agent, message, body.instructions);
+      yield* runAgentLoop(agent, message);
     },
     {
       body: t.Object({
-        message: t.String(),
-        instructions: t.Optional(t.String()),
+        message: t.String()
       }),
     },
   );

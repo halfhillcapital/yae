@@ -9,3 +9,14 @@ template_string PrintMessages(messages: Message[]) #"
     {{ m.content }}
   {% endfor %}
 "#
+
+template_string ChainOfThought() #"
+    Outline some relevant information before you answer.
+    Example:
+    - ...
+    - ...
+    ...
+    {
+      ... // schema
+    }
+"#

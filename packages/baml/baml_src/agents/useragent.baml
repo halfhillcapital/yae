@@ -3,7 +3,6 @@ class UserAgentContext {
   history Message[] @description("The conversation history between the user and the assistant.")
   memory string @description("The agent's current memory content.")
   tool_results string @description("Results from previously executed tools.")
-  instructions string @description("Platform-specific instructions for the current session.")
 }
 
 class UserAgentToolStep {
@@ -56,20 +55,104 @@ function UserAgentTurn(context: UserAgentContext) -> UserAgentAction {
     {{ context.tool_results }}
     </previous_tool_calls>
     {% endif %}
+
+    {{ ctx.output_format }}
     
     Always incorporate the results of previous tool calls and relevant memory blocks into your response.
-
-    {% if context.instructions %}
-    <platform_instructions>
-    {{ context.instructions }}
-    </platform_instructions>
-    {% endif %}
 
     {{ PrintMessages(context.history) }}
 
     {{ _.role("user") }}
     {{ context.query }}
-
-    {{ ctx.output_format }}
   "#
 }
+
+test SimpleGreeting {
+  functions [UserAgentTurn]
+  args {
+    context {
+      query "Hi! How are you doing today?"
+      history []
+      memory #"
+        <memory label="Persona" protected="true" readonly="true">
+        You are a helpful assistant named Yae.
+        </memory>
+      "#
+      tool_results ""
+    }
+  }
+}
+
+test MemorySaveRequest {
+  functions [UserAgentTurn]
+  args {
+    context {
+      query "Remember that my favorite programming language is Rust."
+      history []
+      memory #"
+        <block label="Persona" protected="true" readonly="true">
+        You are a helpful assistant named Yae.
+        </block>
+      "#
+      tool_results ""
+    }
+  }
+}
+
+test MultiTurnWithToolResults {
+  functions [UserAgentTurn]
+  args {
+    context {
+      query "What did you find?"
+      history [
+        {
+          role "user"
+          content "Can you search the web for the latest Bun release notes?"
+        },
+        {
+          role "assistant"
+          content #"{"thinking":"The user wants to know about the latest Bun release. I should search the web for this.","tools":[{"tool_name":"web_search","query":"latest Bun runtime release notes 2025","depth":"standard"}]}"#
+        }
+      ]
+      memory #"
+        <block label="Persona" protected="true" readonly="true">
+        You are a helpful assistant named Yae.
+        </block>
+      "#
+      tool_results #"
+        <tool_result name="web_search">
+        Bun v1.2 was released with built-in S3 support, Postgres driver, and full Node.js compatibility improvements.
+        </tool_result>
+      "#
+    }
+  }
+}
+
+test FileReadRequest {
+  functions [UserAgentTurn]
+  args {
+    context {
+      query "Can you read my notes.txt file?"
+      history [
+        {
+          role "user"
+          content "Hello!"
+        },
+        {
+          role "assistant"
+          content "Hi there! How can I help you today?"
+        }
+      ]
+      memory #"
+        <block label="Persona" protected="true" readonly="true">
+        You are a helpful assistant named Yae.
+        </block>
+        <block label="UserPreferences" updated="2025-01-15">
+        The user stores notes in /home/user/notes.txt.
+        </block>
+      "#
+      tool_results ""
+    }
+  }
+}
+
