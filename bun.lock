@@ -48,6 +48,10 @@
       "name": "@yae/graph",
       "version": "0.1.0",
     },
+    "packages/voice": {
+      "name": "@yae/voice",
+      "version": "0.1.0",
+    },
   },
   "packages": {
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
@@ -243,6 +247,8 @@
     "@yae/graph": ["@yae/graph@workspace:packages/graph"],
 
     "@yae/server": ["@yae/server@workspace:apps/server"],
+
+    "@yae/voice": ["@yae/voice@workspace:packages/voice"],
 
     "acorn": ["acorn@8.15.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg=="],
 
